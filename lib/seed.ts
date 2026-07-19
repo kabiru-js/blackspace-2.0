@@ -1,9 +1,3 @@
-import { config } from "dotenv";
-import { resolve } from "path";
-
-// Load .env.local before anything else
-config({ path: resolve(process.cwd(), ".env.local") });
-
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
 
