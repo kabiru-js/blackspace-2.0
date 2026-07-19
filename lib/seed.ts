@@ -1,0 +1,113 @@
+import { config } from "dotenv";
+import { resolve } from "path";
+
+// Load .env.local before anything else
+config({ path: resolve(process.cwd(), ".env.local") });
+
+import { createClient } from "@supabase/supabase-js";
+import { v4 as uuidv4 } from "uuid";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local");
+  process.exit(1);
+}
+
+console.log("Using", process.env.SUPABASE_SERVICE_ROLE_KEY ? "service_role" : "anon", "key for seeding");
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+const scholarships = [
+  // Chevening
+  { title: "Chevening Scholarships", provider: "UK Government", country: "United Kingdom", level: "masters", field: "International Relations", funding_type: "full", deadline: "2025-11-05", description: "Fully-funded scholarships to study at any UK university for emerging leaders.", eligibility: "Minimum 2 years work experience, strong academic background.", application_link: "https://www.chevening.org/apply/", tags: ["leadership", "uk", "fully-funded"] },
+  { title: "Chevening Climate Change Fellowship", provider: "UK Government", country: "United Kingdom", level: "masters", field: "Environmental Science", funding_type: "full", deadline: "2025-10-15", description: "Specialized fellowship for climate change leaders.", eligibility: "Professionals with 5+ years in climate-related fields.", application_link: "https://www.chevening.org/fellowships/", tags: ["climate", "fellowship", "uk"] },
+
+  // DAAD
+  { title: "DAAD Study Scholarships", provider: "DAAD", country: "Germany", level: "masters", field: "Engineering", funding_type: "full", deadline: "2025-09-30", description: "Scholarships for international students to study in Germany.", eligibility: "Bachelor's degree, good academic record.", application_link: "https://www.daad.de/en/", tags: ["germany", "engineering", "stem"] },
+  { title: "DAAD Helmut Schmidt Programme", provider: "DAAD", country: "Germany", level: "masters", field: "Public Policy", funding_type: "full", deadline: "2025-08-31", description: "Master's scholarships for future leaders in public policy.", eligibility: "Bachelor's degree, 2+ years professional experience.", application_link: "https://www.daad.de/helmut-schmidt/", tags: ["public-policy", "leadership", "germany"] },
+  { title: "DAAD Research Grants", provider: "DAAD", country: "Germany", level: "phd", field: "Computer Science", funding_type: "full", deadline: "2025-10-04", description: "Research grants for doctoral candidates in Germany.", eligibility: "Master's degree, research proposal required.", application_link: "https://www.daad.de/research-grants/", tags: ["research", "phd", "germany"] },
+  { title: "DAAD WISE Programme", provider: "DAAD", country: "Germany", level: "undergraduate", field: "Engineering", funding_type: "partial", deadline: "2025-07-15", description: "Internship scholarship for engineering and science students.", eligibility: "Undergraduate engineering students.", application_link: "https://www.daad.de/wise/", tags: ["internship", "engineering", "germany"] },
+
+  // Erasmus Mundus
+  { title: "Erasmus Mundus Joint Master", provider: "European Union", country: "Multiple", level: "masters", field: "Data Science", funding_type: "full", deadline: "2025-12-15", description: "Joint master's programme across multiple European universities.", eligibility: "Bachelor's degree, strong academic record.", application_link: "https://erasmus-plus.ec.europa.eu/", tags: ["europe", "joint-degree", "data-science"] },
+  { title: "Erasmus+ Exchange Programme", provider: "European Union", country: "Multiple", level: "undergraduate", field: "Business", funding_type: "partial", deadline: "2025-05-30", description: "Study exchange across European partner universities.", eligibility: "Registered university students.", application_link: "https://erasmus-plus.ec.europa.eu/", tags: ["exchange", "europe", "business"] },
+  { title: "Erasmus Mundus in Renewable Energy", provider: "European Union", country: "Multiple", level: "masters", field: "Renewable Energy", funding_type: "full", deadline: "2026-01-15", description: "Specialized master's in renewable energy across EU institutions.", eligibility: "Engineering or science bachelor's degree.", application_link: "https://erasmus-mundus.eu/", tags: ["renewable-energy", "europe", "stem"] },
+  { title: "Erasmus Mundus in Public Health", provider: "European Union", country: "Multiple", level: "masters", field: "Public Health", funding_type: "full", deadline: "2025-11-30", description: "Joint master's in public health from leading European universities.", eligibility: "Health sciences background.", application_link: "https://erasmus-mundus.eu/", tags: ["public-health", "europe", "health"] },
+
+  // Fulbright
+  { title: "Fulbright Foreign Student Program", provider: "Fulbright", country: "United States", level: "masters", field: "Various", funding_type: "full", deadline: "2025-10-11", description: "Prestigious scholarship for graduate study in the US.", eligibility: "Bachelor's degree, strong leadership potential.", application_link: "https://foreign.fulbrightonline.org/", tags: ["usa", "prestigious", "fully-funded"] },
+  { title: "Fulbright Visiting Scholar Program", provider: "Fulbright", country: "United States", level: "phd", field: "Anthropology", funding_type: "full", deadline: "2025-09-15", description: "Research scholarships for postdoctoral and senior researchers.", eligibility: "PhD or equivalent, research proposal.", application_link: "https://fulbrightscholars.org/", tags: ["research", "usa", "academia"] },
+  { title: "Fulbright-Nehru Fellowship", provider: "Fulbright", country: "United States", level: "phd", field: "Economics", funding_type: "full", deadline: "2025-07-15", description: "Doctoral research fellowship for Indian scholars.", eligibility: "Master's degree, research experience.", application_link: "https://www.usief.org.in/", tags: ["india", "economics", "research"] },
+
+  // Mastercard Foundation
+  { title: "Mastercard Foundation Scholars Program", provider: "Mastercard Foundation", country: "Multiple", level: "undergraduate", field: "Various", funding_type: "full", deadline: "2025-04-30", description: "Transformative education for African students at partner universities.", eligibility: "African students, academic potential, leadership.", application_link: "https://mastercardfdn.org/scholars/", tags: ["africa", "leadership", "fully-funded"] },
+  { title: "Mastercard Foundation at University of Edinburgh", provider: "Mastercard Foundation", country: "United Kingdom", level: "masters", field: "Development Studies", funding_type: "full", deadline: "2025-03-15", description: "Full scholarships for African students at Edinburgh.", eligibility: "African students with strong academic records.", application_link: "https://www.ed.ac.uk/mastercard/", tags: ["africa", "uk", "development"] },
+  { title: "Mastercard Foundation at McGill", provider: "Mastercard Foundation", country: "Canada", level: "undergraduate", field: "Computer Science", funding_type: "full", deadline: "2025-02-28", description: "Scholarship for African students at McGill University.", eligibility: "African students applying to McGill.", application_link: "https://www.mcgill.ca/mastercard/", tags: ["africa", "canada", "tech"] },
+
+  // More scholarships
+  { title: "Rhodes Scholarship", provider: "Rhodes Trust", country: "United Kingdom", level: "masters", field: "Various", funding_type: "full", deadline: "2025-10-01", description: "The oldest and most prestigious international scholarship.", eligibility: "Outstanding academic achievement, leadership.", application_link: "https://www.rhodeshouse.ox.ac.uk/", tags: ["prestigious", "oxford", "leadership"] },
+  { title: "Gates Cambridge Scholarship", provider: "Gates Foundation", country: "United Kingdom", level: "phd", field: "Various", funding_type: "full", deadline: "2025-10-11", description: "Full scholarships for graduate study at Cambridge.", eligibility: "Outstanding academic record, leadership.", application_link: "https://www.gatescambridge.org/", tags: ["cambridge", "prestigious", "fully-funded"] },
+  { title: "Swedish Institute Scholarships", provider: "Swedish Institute", country: "Sweden", level: "masters", field: "Sustainable Development", funding_type: "full", deadline: "2025-02-15", description: "Scholarships for master's programs in Sweden.", eligibility: "Bachelor's degree, leadership experience.", application_link: "https://si.se/scholarships/", tags: ["sweden", "sustainability", "leadership"] },
+  { title: "Vanier Canada Graduate Scholarships", provider: "Government of Canada", country: "Canada", level: "phd", field: "Medicine", funding_type: "full", deadline: "2025-11-05", description: "Prestigious doctoral scholarships for Canadian and international students.", eligibility: "First-class average, research potential.", application_link: "https://vanier.gc.ca/", tags: ["canada", "phd", "research"] },
+  { title: "Australia Awards Scholarships", provider: "Australian Government", country: "Australia", level: "masters", field: "Public Health", funding_type: "full", deadline: "2025-04-30", description: "Development-focused scholarships for study in Australia.", eligibility: "From eligible developing countries.", application_link: "https://www.dfat.gov.au/australia-awards/", tags: ["australia", "development", "health"] },
+  { title: "ANID Chile Scholarships", provider: "ANID", country: "Chile", level: "phd", field: "Astronomy", funding_type: "full", deadline: "2025-08-15", description: "Chilean government scholarships for graduate studies.", eligibility: "Bachelor's or master's degree.", application_link: "https://www.anid.cl/", tags: ["chile", "astronomy", "research"] },
+  { title: "SUTD Scholarship", provider: "SUTD", country: "Singapore", level: "undergraduate", field: "Engineering", funding_type: "partial", deadline: "2025-06-30", description: "Merit-based scholarship at Singapore University of Technology and Design.", eligibility: "Strong academic record in STEM.", application_link: "https://www.sutd.edu.sg/", tags: ["singapore", "engineering", "tech"] },
+  { title: "MEXT Scholarship", provider: "Japanese Government", country: "Japan", level: "masters", field: "Robotics", funding_type: "full", deadline: "2025-05-15", description: "Japanese government scholarship for international students.", eligibility: "Bachelor's degree, Japanese language proficiency preferred.", application_link: "https://www.mext.go.jp/", tags: ["japan", "robotics", "fully-funded"] },
+  { title: "KAIST International Scholarship", provider: "KAIST", country: "South Korea", level: "masters", field: "Artificial Intelligence", funding_type: "full", deadline: "2025-10-30", description: "Full scholarship at Korea's top tech university.", eligibility: "Strong STEM background.", application_link: "https://www.kaist.ac.kr/", tags: ["korea", "ai", "stem"] },
+  { title: "ETH Zurich Excellence Scholarship", provider: "ETH Zurich", country: "Switzerland", level: "masters", field: "Physics", funding_type: "partial", deadline: "2025-11-15", description: "Scholarship for outstanding master's students at ETH Zurich.", eligibility: "Top 10% of bachelor's class.", application_link: "https://ethz.ch/", tags: ["switzerland", "physics", "excellence"] },
+  { title: "TU Delft Excellence Scholarship", provider: "TU Delft", country: "Netherlands", level: "masters", field: "Civil Engineering", funding_type: "partial", deadline: "2025-04-01", description: "Scholarship for excellent students at TU Delft.", eligibility: "Outstanding academic record.", application_link: "https://www.tudelft.nl/", tags: ["netherlands", "engineering", "excellence"] },
+  { title: "University of Tokyo PEAK Program", provider: "University of Tokyo", country: "Japan", level: "undergraduate", field: "Environmental Studies", funding_type: "partial", deadline: "2025-12-01", description: "English-taught undergraduate program at Japan's top university.", eligibility: "Strong academic record, English proficiency.", application_link: "https://peak.c.u-tokyo.ac.jp/", tags: ["japan", "environment", "english"] },
+  { title: "Sciences Po Amundi Scholarship", provider: "Sciences Po", country: "France", level: "masters", field: "Finance", funding_type: "partial", deadline: "2025-03-31", description: "Scholarship for international students in finance.", eligibility: "Bachelor's degree, financial need.", application_link: "https://www.sciencespo.fr/", tags: ["france", "finance", "economics"] },
+  { title: "Eiffel Excellence Scholarship", provider: "French Government", country: "France", level: "masters", field: "Law", funding_type: "full", deadline: "2025-01-10", description: "Prestigious French government scholarship.", eligibility: "Under 30 years old from non-French nationality.", application_link: "https://www.campusfrance.org/", tags: ["france", "law", "excellence"] },
+  { title: "Holland Scholarship", provider: "Dutch Ministry of Education", country: "Netherlands", level: "undergraduate", field: "International Business", funding_type: "partial", deadline: "2025-05-01", description: "Scholarship for non-EEA students at Dutch universities.", eligibility: "First year of study in Netherlands.", application_link: "https://www.studyinholland.nl/", tags: ["netherlands", "business", "international"] },
+  { title: "ADB-JSP Scholarship", provider: "Asian Development Bank", country: "Multiple", level: "masters", field: "Economics", funding_type: "full", deadline: "2025-06-30", description: "ADB scholarship for graduate studies in Asia-Pacific.", eligibility: "From ADB member countries.", application_link: "https://www.adb.org/jsp/", tags: ["asia", "economics", "development"] },
+  { title: "Aga Khan Foundation Scholarship", provider: "Aga Khan Foundation", country: "Multiple", level: "masters", field: "Architecture", funding_type: "partial", deadline: "2025-03-31", description: "Scholarship for students from developing countries.", eligibility: "From select developing countries.", application_link: "https://www.akdn.org/", tags: ["developing", "architecture", "development"] },
+  { title: "Joint Japan World Bank Scholarship", provider: "World Bank", country: "Multiple", level: "masters", field: "Public Policy", funding_type: "full", deadline: "2025-04-15", description: "Scholarship for graduate studies in development-related fields.", eligibility: "From World Bank member countries.", application_link: "https://www.worldbank.org/jjwb/", tags: ["world-bank", "policy", "development"] },
+  { title: "Orange Knowledge Programme", provider: "Dutch Government", country: "Netherlands", level: "masters", field: "Water Management", funding_type: "full", deadline: "2025-05-15", description: "Dutch scholarship for professionals from developing countries.", eligibility: "From eligible countries, mid-career professionals.", application_link: "https://www.studyinholland.nl/okp/", tags: ["netherlands", "water", "environment"] },
+  { title: "Belt and Road Scholarship", provider: "Chinese Government", country: "China", level: "masters", field: "International Trade", funding_type: "full", deadline: "2025-04-30", description: "Chinese government scholarship for Belt and Road countries.", eligibility: "From Belt and Road countries.", application_link: "https://www.campuschina.org/", tags: ["china", "trade", "international"] },
+  { title: "UNESCO/ISEDC Fellowship", provider: "UNESCO", country: "Russia", level: "masters", field: "Energy", funding_type: "full", deadline: "2025-07-01", description: "Fellowship in sustainable energy development.", eligibility: "Bachelor's in energy-related fields.", application_link: "https://www.unesco.org/", tags: ["energy", "sustainability", "russia"] },
+  { title: "Turkish Government Scholarship", provider: "Turkish Government", country: "Turkey", level: "undergraduate", field: "Medicine", funding_type: "full", deadline: "2025-02-20", description: "Comprehensive scholarship for study in Turkish universities.", eligibility: "Varies by program.", application_link: "https://www.turkiyeburslari.gov.tr/", tags: ["turkey", "medicine", "fully-funded"] },
+  { title: "Hungary Government Scholarship", provider: "Hungarian Government", country: "Hungary", level: "masters", field: "Agriculture", funding_type: "full", deadline: "2025-01-15", description: "Stipendium Hungaricum scholarship for international students.", eligibility: "From eligible countries, good academic record.", application_link: "https://stipendiumhungaricum.hu/", tags: ["hungary", "agriculture", "fully-funded"] },
+  { title: "Italian Government Scholarship", provider: "Italian Government", country: "Italy", level: "masters", field: "Art History", funding_type: "full", deadline: "2025-05-30", description: "Scholarships for international students in Italy.", eligibility: "Bachelor's degree, under 30 years old.", application_link: "https://www.studyinitaly.it/", tags: ["italy", "arts", "culture"] },
+  { title: "Polish Government Scholarship", provider: "Polish Government", country: "Poland", level: "undergraduate", field: "Computer Science", funding_type: "partial", deadline: "2025-06-15", description: "Scholarships for international students in Poland.", eligibility: "Strong academic record.", application_link: "https://www.gov.pl/", tags: ["poland", "computer-science", "tech"] },
+  { title: "Czech Government Scholarship", provider: "Czech Government", country: "Czech Republic", level: "phd", field: "Biotechnology", funding_type: "full", deadline: "2025-08-31", description: "Scholarships for doctoral studies in Czech Republic.", eligibility: "Master's degree in relevant field.", application_link: "https://www.studyin.cz/", tags: ["czech-republic", "biotech", "research"] },
+  { title: "Norwegian Quota Scheme", provider: "Norwegian Government", country: "Norway", level: "masters", field: "Marine Biology", funding_type: "full", deadline: "2025-03-01", description: "Scholarship for students from developing countries in Norway.", eligibility: "From developing countries.", application_link: "https://www.studyinnorway.no/", tags: ["norway", "marine", "environment"] },
+  { title: "Danish Government Scholarship", provider: "Danish Government", country: "Denmark", level: "masters", field: "Design", funding_type: "partial", deadline: "2025-03-15", description: "Danish government scholarships for highly qualified students.", eligibility: "Non-EEA students with strong academic records.", application_link: "https://studyindenmark.dk/", tags: ["denmark", "design", "creative"] },
+  { title: "Swiss Government Excellence Scholarship", provider: "Swiss Government", country: "Switzerland", level: "phd", field: "Neuroscience", funding_type: "full", deadline: "2025-11-01", description: "Research scholarships for doctoral and postdoctoral researchers.", eligibility: "Master's degree or PhD, research proposal.", application_link: "https://www.sbfi.admin.ch/", tags: ["switzerland", "neuroscience", "research"] },
+  { title: "Austrian Government Scholarship", provider: "Austrian Government", country: "Austria", level: "masters", field: "Music", funding_type: "partial", deadline: "2025-04-01", description: "Scholarships for international students in Austrian universities.", eligibility: "Strong academic background.", application_link: "https://www.oead.at/", tags: ["austria", "music", "arts"] },
+  { title: "Mexican Government Scholarship", provider: "Mexican Government", country: "Mexico", level: "masters", field: "Latin American Studies", funding_type: "full", deadline: "2025-07-31", description: "Scholarships for international students in Mexico.", eligibility: "Bachelor's degree, Spanish proficiency preferred.", application_link: "https://www.gob.mx/", tags: ["mexico", "latin-america", "culture"] },
+  { title: "Taiwan ICDF Scholarship", provider: "Taiwan ICDF", country: "Taiwan", level: "masters", field: "Information Technology", funding_type: "full", deadline: "2025-03-15", description: "Scholarships for partner country students in Taiwanese universities.", eligibility: "From ICDF partner countries.", application_link: "https://www.icdf.org.tw/", tags: ["taiwan", "it", "technology"] },
+  { title: "Singapore International Graduate Award", provider: "Singapore Government", country: "Singapore", level: "phd", field: "Biomedical Engineering", funding_type: "full", deadline: "2025-06-01", description: "PhD scholarship in Singaporean universities.", eligibility: "First-class honours degree.", application_link: "https://www.a-star.edu.sg/", tags: ["singapore", "biomedical", "research"] },
+  { title: "IMPA Scholarship Brazil", provider: "IMPA", country: "Brazil", level: "phd", field: "Mathematics", funding_type: "full", deadline: "2025-12-15", description: "Scholarship for mathematics research at IMPA.", eligibility: "Strong background in mathematics.", application_link: "https://impa.br/", tags: ["brazil", "mathematics", "research"] },
+];
+
+async function seed() {
+  console.log(`Seeding ${scholarships.length} scholarships...`);
+
+  // Clear existing data
+  await supabase.from("swipes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await supabase.from("applications").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await supabase.from("user_documents").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await supabase.from("scholarships").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+
+  const records = scholarships.map((s) => ({
+    id: uuidv4(),
+    ...s,
+    created_at: new Date().toISOString(),
+  }));
+
+  const { error } = await supabase.from("scholarships").insert(records);
+
+  if (error) {
+    console.error("Error seeding scholarships:", error);
+    process.exit(1);
+  }
+
+  console.log(`✓ Successfully seeded ${records.length} scholarships`);
+  process.exit(0);
+}
+
+seed();
