@@ -42,10 +42,16 @@ export default function LoginPage() {
           password,
         });
 
-        if (signInError) throw signInError;
+        if (signInError) {
+          console.error("Sign in error:", signInError);
+          throw signInError;
+        }
 
+        console.log("Login success, redirecting to onboarding");
         track("signin", { email });
-        router.push("/onboarding");
+        
+        // Force full navigation to avoid race with Providers redirect
+        window.location.href = "/onboarding";
       }
     } catch (err) {
       setError(
