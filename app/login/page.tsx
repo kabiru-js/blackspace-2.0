@@ -49,9 +49,7 @@ export default function LoginPage() {
 
         console.log("Login success, redirecting to onboarding");
         track("signin", { email });
-        
-        // Force full navigation to avoid race with Providers redirect
-        window.location.href = "/onboarding";
+        router.push("/onboarding");
       }
     } catch (err) {
       setError(

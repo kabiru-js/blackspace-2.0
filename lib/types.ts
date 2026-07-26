@@ -1,7 +1,33 @@
-export type StudyLevel = "undergraduate" | "masters" | "phd";
-export type FundingType = "full" | "partial";
+// Blackspace v3 — Unified Opportunity Types
+
+export type OpportunityCategory =
+  | "academic"
+  | "career"
+  | "creative"
+  | "athletic";
+
+export type OpportunityType =
+  | "scholarship"
+  | "fellowship"
+  | "job"
+  | "internship"
+  | "grant"
+  | "creative_call"
+  | "athletic_trial";
+
+export type StudyLevel =
+  | "undergraduate"
+  | "masters"
+  | "phd"
+  | "early_career"
+  | "mid_career"
+  | "all";
+
+export type FundingType = "full" | "partial" | "paid" | "unpaid";
 export type ApplicationStatus = "draft" | "ready" | "submitted";
 export type DocumentType = "cv" | "transcript" | "passport" | "personal_statement";
+
+// ── Core Entities ──
 
 export interface User {
   id: string;
@@ -13,26 +39,39 @@ export interface User {
   gpa: string;
   preferred_countries: string[];
   goals: string;
+  skills: string[];
+  category_focus: OpportunityCategory[];
+  experience_level: string;
   created_at: string;
 }
 
-export interface Scholarship {
+export interface Opportunity {
   id: string;
   title: string;
   provider: string;
   country: string;
-  level: StudyLevel;
+
+  // v3 fields
+  category: OpportunityCategory;
+  type: OpportunityType;
+  skills: string[];
+  is_remote: boolean;
+  location: string;
+
+  // legacy fields (kept for compat)
+  level: StudyLevel | string;
   field: string;
-  funding_type: FundingType;
+  funding_type: FundingType | string;
   deadline: string;
   description: string;
   eligibility: string;
+  requirements: string;
   application_link: string;
   tags: string[];
   created_at: string;
 }
 
-export interface ScholarshipWithMatch extends Scholarship {
+export interface OpportunityWithMatch extends Opportunity {
   match_score: number;
 }
 
@@ -60,3 +99,29 @@ export interface UserDocument {
   file_url: string;
   created_at: string;
 }
+
+// ── Category Display Helpers ──
+
+export const CATEGORY_LABELS: Record<OpportunityCategory, string> = {
+  academic: "Academic",
+  career: "Professional",
+  creative: "Creative",
+  athletic: "Athletic",
+};
+
+export const CATEGORY_COLORS: Record<OpportunityCategory, string> = {
+  academic: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+  career: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  creative: "bg-pink-500/10 text-pink-400 border-pink-500/20",
+  athletic: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+};
+
+export const TYPE_LABELS: Record<OpportunityType, string> = {
+  scholarship: "Scholarship",
+  fellowship: "Fellowship",
+  job: "Job",
+  internship: "Internship",
+  grant: "Grant",
+  creative_call: "Creative Call",
+  athletic_trial: "Athletic Trial",
+};

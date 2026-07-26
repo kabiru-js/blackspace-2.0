@@ -2,18 +2,25 @@
 
 import { useState } from "react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
-import { ScholarshipWithMatch } from "@/lib/types";
-import { MapPin, Building2, Clock, Sparkles } from "lucide-react";
+import { OpportunityWithMatch, CATEGORY_LABELS, CATEGORY_COLORS, TYPE_LABELS } from "@/lib/types";
+import { MapPin, Building2, Clock, Sparkles, Briefcase, Palette, Dumbbell, GraduationCap } from "lucide-react";
+
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  academic: <GraduationCap className="w-3.5 h-3.5" />,
+  career: <Briefcase className="w-3.5 h-3.5" />,
+  creative: <Palette className="w-3.5 h-3.5" />,
+  athletic: <Dumbbell className="w-3.5 h-3.5" />,
+};
 
 interface SwipeCardProps {
-  scholarship: ScholarshipWithMatch;
+  opportunity: OpportunityWithMatch;
   onSwipe: (direction: "left" | "right") => void;
   stackIndex?: number;
   isTop: boolean;
 }
 
 export function SwipeCard({
-  scholarship,
+  opportunity,
   onSwipe,
   stackIndex = 0,
   isTop,
@@ -47,7 +54,7 @@ export function SwipeCard({
   };
 
   const daysLeft = Math.ceil(
-    (new Date(scholarship.deadline).getTime() - Date.now()) /
+    (new Date(opportunity.deadline).getTime() - Date.now()) /
       (1000 * 60 * 60 * 24)
   );
 
@@ -110,9 +117,20 @@ export function SwipeCard({
           {/* Badges */}
           <div className="absolute top-4 left-4 right-4 flex items-start justify-between">
             <div className="flex flex-wrap gap-2">
-              {scholarship.funding_type === "full" && (
+              {/* Category badge */}
+              <span className={`px-3 py-1 border rounded-full text-xs font-semibold backdrop-blur-sm ${(CATEGORY_COLORS as any)[opportunity.category] || "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"}`}>
+                {CATEGORY_ICONS[opportunity.category]}
+                <span className="ml-1">{CATEGORY_LABELS[opportunity.category]}</span>
+              </span>
+
+              {opportunity.funding_type === "full" && (
                 <span className="px-3 py-1 bg-green-500/20 border border-green-500/40 rounded-full text-xs font-semibold text-green-400 backdrop-blur-sm">
                   FULLY FUNDED
+                </span>
+              )}
+              {opportunity.is_remote && (
+                <span className="px-3 py-1 bg-blue-500/20 border border-blue-500/40 rounded-full text-xs font-semibold text-blue-400 backdrop-blur-sm">
+                  REMOTE
                 </span>
               )}
               {isUrgent && (
@@ -125,7 +143,7 @@ export function SwipeCard({
                   CLOSING SOON
                 </span>
               )}
-              {scholarship.match_score >= 70 && (
+              {opportunity.match_score >= 70 && (
                 <span className="px-3 py-1 bg-accent/20 border border-accent/40 rounded-full text-xs font-semibold text-accent-light backdrop-blur-sm">
                   🔥 HIGH MATCH
                 </span>
@@ -138,7 +156,7 @@ export function SwipeCard({
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full border border-zinc-700/50">
               <Sparkles className="w-3.5 h-3.5 text-accent-light" />
               <span className="text-sm font-bold text-white">
-                {scholarship.match_score}%
+                {opportunity.match_score}%
               </span>
             </div>
           </div>
@@ -146,7 +164,7 @@ export function SwipeCard({
           {/* Title */}
           <div className="absolute bottom-4 left-4 right-16">
             <h2 className="text-xl font-bold text-white leading-tight drop-shadow-lg">
-              {scholarship.title}
+              {opportunity.title}
             </h2>
           </div>
         </div>
@@ -157,11 +175,11 @@ export function SwipeCard({
           <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-400">
             <div className="flex items-center gap-1.5">
               <Building2 className="w-4 h-4 text-zinc-500" />
-              <span>{scholarship.provider}</span>
+              <span>{opportunity.provider}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <MapPin className="w-4 h-4 text-zinc-500" />
-              <span>{scholarship.country}</span>
+              <span>{opportunity.country}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-zinc-500" />
@@ -174,20 +192,41 @@ export function SwipeCard({
                     : ""
                 }
               >
-                {daysLeft > 0 ? `${daysLeft} days left` : "Deadline passed"}
+                {daysLeft > 0 ? `${daysLeft} days left` : daysLeft === 0 ? "Today!" : "Deadline passed"}
               </span>
             </div>
+          </div>
+
+          {/* Trust row */}
+          <div className="flex items-center gap-3 text-[10px]">
+            {opportunity.application_link ? (
+              <span className="flex items-center gap-1 text-green-500">
+                <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                Official link available
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-amber-500">
+                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
+                Aggregated listing
+              </span>
+            )}
+            {opportunity.tags.includes("verified") && (
+              <span className="flex items-center gap-1 text-blue-400">
+                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
+                Verified
+              </span>
+            )}
           </div>
 
           {/* Level & Field tags */}
           <div className="flex flex-wrap gap-2">
             <span className="px-2.5 py-1 bg-zinc-800 rounded-md text-xs text-zinc-300 capitalize border border-zinc-700/50">
-              {scholarship.level}
+              {TYPE_LABELS[opportunity.type as keyof typeof TYPE_LABELS] || opportunity.type}
             </span>
             <span className="px-2.5 py-1 bg-zinc-800 rounded-md text-xs text-zinc-300 border border-zinc-700/50">
-              {scholarship.field}
+              {opportunity.field}
             </span>
-            {scholarship.tags.slice(0, 2).map((tag) => (
+            {opportunity.tags.slice(0, 2).map((tag) => (
               <span
                 key={tag}
                 className="px-2.5 py-1 bg-zinc-800 rounded-md text-xs text-zinc-400 border border-zinc-700/50"
@@ -199,7 +238,7 @@ export function SwipeCard({
 
           {/* Description */}
           <p className="text-sm text-zinc-400 leading-relaxed line-clamp-2">
-            {scholarship.description}
+            {opportunity.description}
           </p>
         </div>
       </div>

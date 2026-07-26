@@ -14,13 +14,13 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabaseClient";
 import { DocumentChecklist } from "./DocumentChecklist";
-import { Scholarship, UserDocument, DocumentType } from "@/lib/types";
+import { Opportunity, UserDocument, DocumentType } from "@/lib/types";
 import clsx from "clsx";
 
 interface ApplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  scholarship: Scholarship;
+  scholarship: Opportunity;
   userId: string;
 }
 

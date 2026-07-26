@@ -6,12 +6,12 @@ import { X, Heart, RefreshCw, Sparkles, CheckCircle2, Globe } from "lucide-react
 import { SwipeCard } from "./SwipeCard";
 import { createClient } from "@/lib/supabaseClient";
 import { useAppStore } from "@/lib/store";
-import { sortScholarshipsByMatch } from "@/lib/matching";
-import { Scholarship, ScholarshipWithMatch } from "@/lib/types";
+import { sortOpportunitiesByMatch } from "@/lib/matching";
+import { Opportunity, OpportunityWithMatch } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { track } from "@/lib/analytics";
 
-export function SwipeDeck() {
+export function SwipeDeck({ activeCategory }: { activeCategory: string }) {
   const [swipedIds, setSwipedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,14 +20,14 @@ export function SwipeDeck() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error"; onUndo?: () => void } | null>(null);
   const [lastSwiped, setLastSwiped] = useState<{ id: string; liked: boolean } | null>(null);
 
-  const { user, scholarships, setScholarships } = useAppStore();
+  const { user, opportunities, setOpportunities } = useAppStore();
   const router = useRouter();
   const supabase = createClient();
 
-  const availableScholarships = scholarships.filter(
-    (s) => !swipedIds.has(s.id)
+  const availableOpportunities = opportunities.filter(
+    (o) => !swipedIds.has(o.id)
   );
-  const currentCard = availableScholarships[0];
+  const currentCard = availableOpportunities[0];
 
   const loadScholarships = useCallback(async () => {
     if (!user) return;
@@ -36,9 +36,11 @@ export function SwipeDeck() {
     setError(null);
 
     try {
-      const { data: allScholarships, error: fetchError } = await supabase
-        .from("scholarships")
-        .select("*");
+      let query = supabase.from("scholarships").select("*");
+      if (activeCategory && activeCategory !== "all") {
+        query = query.eq("category", activeCategory);
+      }
+      const { data: allOpportunities, error: fetchError } = await query;
 
       if (fetchError) throw fetchError;
 
@@ -52,12 +54,12 @@ export function SwipeDeck() {
         (swipesData || []).map((s) => s.scholarship_id)
       );
 
-      const unscored = ((allScholarships as Scholarship[]) || []).filter(
-        (s) => !alreadySwiped.has(s.id)
+      const unscored = ((allOpportunities as Opportunity[]) || []).filter(
+        (o) => !alreadySwiped.has(o.id)
       );
 
-      const scored = sortScholarshipsByMatch(unscored, user);
-      setScholarships(scored);
+      const scored = sortOpportunitiesByMatch(unscored, user);
+      setOpportunities(scored);
       setSwipedIds(alreadySwiped);
     } catch (err) {
       console.error("Error loading scholarships:", err);
@@ -65,11 +67,10 @@ export function SwipeDeck() {
     } finally {
       setLoading(false);
     }
-  }, [user, setScholarships]);
+  }, [user, setOpportunities, activeCategory]);
 
-  // Fetch fresh scholarships from DeepSeek when deck is low
   const discoverScholarships = useCallback(async () => {
-    if (!user || availableScholarships.length > 3 || discovering) return;
+    if (!user || availableOpportunities.length > 3 || discovering) return;
 
     setDiscovering(true);
     try {
@@ -89,17 +90,21 @@ export function SwipeDeck() {
       const { scholarships: newScholarships } = await res.json();
       if (!newScholarships?.length) return;
 
-      // Save new scholarships to Supabase
       const toInsert = newScholarships.map((s: any) => ({
         title: s.title,
         provider: s.provider,
         country: s.country,
+        category: s.category || "academic",
+        type: s.type || "scholarship",
         level: s.level || user.level,
         field: s.field || user.field_of_study,
         funding_type: s.funding_type || "partial",
+        skills: s.skills || [],
+        is_remote: s.is_remote || false,
         deadline: s.deadline || new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0],
         description: s.description || "",
         eligibility: s.eligibility || "",
+        requirements: s.requirements || "",
         application_link: s.application_link || "",
         tags: s.tags || [],
       }));
@@ -109,32 +114,28 @@ export function SwipeDeck() {
         .insert(toInsert as any)
         .select();
 
-      if (insertError) {
-        console.error("Failed to insert discovered scholarships:", insertError);
-        return;
-      }
+      if (insertError) return;
 
-      // Add new scholarships to the deck
       if (inserted?.length) {
-        const scored = sortScholarshipsByMatch(
-          (inserted as Scholarship[]).filter((s) => !swipedIds.has(s.id)),
+        const scored = sortOpportunitiesByMatch(
+          (inserted as Opportunity[]).filter((o) => !swipedIds.has(o.id)),
           user
         );
-        setScholarships([...scholarships, ...scored]);
+        setOpportunities([...opportunities, ...scored]);
       }
     } catch (err) {
       console.error("Discovery error:", err);
     } finally {
       setDiscovering(false);
     }
-  }, [user, availableScholarships.length, swipedIds]);
+  }, [user, availableOpportunities.length, swipedIds, opportunities, discovering]);
 
   // Trigger discovery when deck is low
   useEffect(() => {
-    if (!loading && availableScholarships.length <= 3) {
+    if (!loading && availableOpportunities.length <= 3) {
       discoverScholarships();
     }
-  }, [availableScholarships.length, loading, discoverScholarships]);
+  }, [availableOpportunities.length, loading, discoverScholarships]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -151,10 +152,10 @@ export function SwipeDeck() {
     loadScholarships();
   }, [loadScholarships]);
 
-  const generateApplication = async (scholarship: ScholarshipWithMatch) => {
+  const generateApplication = async (opportunity: OpportunityWithMatch) => {
     if (!user) return;
 
-    setGeneratingFor(scholarship.id);
+    setGeneratingFor(opportunity.id);
 
     try {
       const res = await fetch("/api/generate-essay", {
@@ -162,18 +163,18 @@ export function SwipeDeck() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: user.id,
-          scholarshipId: scholarship.id,
+          scholarshipId: opportunity.id,
         }),
       });
 
       if (!res.ok) throw new Error("Generation failed");
 
-      const { essay, letter } = await res.json();
-      const fullContent = `## Personal Statement\n\n${essay}\n\n---\n\n## Motivation Letter\n\n${letter}`;
+      const { content, essay, letter } = await res.json();
+      const fullContent = content || `## Personal Statement\n\n${essay}\n\n---\n\n## Motivation Letter\n\n${letter}`;
 
       await supabase.from("applications").insert({
         user_id: user.id,
-        scholarship_id: scholarship.id,
+        scholarship_id: opportunity.id,
         status: "draft",
         generated_essay: fullContent,
       } as any);
@@ -184,8 +185,8 @@ export function SwipeDeck() {
       });
 
       track("ai_application_generated", {
-        scholarship_id: scholarship.id,
-        scholarship_title: scholarship.title,
+        scholarship_id: opportunity.id,
+        scholarship_title: opportunity.title,
       });
     } catch (err) {
       console.error("Auto-apply error:", err);
@@ -307,7 +308,7 @@ export function SwipeDeck() {
     );
   }
 
-  const noMoreCards = availableScholarships.length === 0;
+  const noMoreCards = availableOpportunities.length === 0;
 
   return (
     <div className="flex flex-col items-center justify-center h-full pt-4 pb-20">
@@ -416,23 +417,24 @@ export function SwipeDeck() {
             </motion.div>
           ) : (
             <>
-              {availableScholarships
+              {availableOpportunities
                 .slice(1, 4)
                 .reverse()
-                .map((s, i) => (
+                .map((o, i) => (
                   <SwipeCard
-                    key={s.id}
-                    scholarship={s}
+                    key={o.id}
+                    opportunity={o}
                     onSwipe={() => {}}
                     isTop={false}
                     stackIndex={i}
                   />
                 ))}
 
+              {/* Top card */}
               {currentCard && (
                 <SwipeCard
                   key={currentCard.id}
-                  scholarship={currentCard}
+                  opportunity={currentCard}
                   onSwipe={handleSwipe}
                   isTop={true}
                 />

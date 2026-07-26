@@ -43,15 +43,15 @@ export default function LandingPage() {
         </div>
 
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
-          Scholarships Worth
+          Opportunities Worth
           <br />
           <span className="text-gradient">Swipe Right</span> For
         </h1>
 
         <p className="text-lg text-zinc-400 max-w-xl mx-auto mb-10 leading-relaxed">
-          Discover scholarships matched to your profile in seconds. Swipe,
-          match, and apply — with AI-generated essays ready before you click
-          submit.
+          Discover scholarships, jobs, internships, grants, and more — matched to
+          your profile. Swipe, match, and apply with AI-generated content in
+          seconds.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">

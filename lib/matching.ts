@@ -1,49 +1,68 @@
-import { Scholarship, ScholarshipWithMatch, User } from "./types";
+// Blackspace v3 — Multi-category matching engine
+import { Opportunity, OpportunityWithMatch, User } from "./types";
 
 export function computeMatchScore(
-  scholarship: Scholarship,
+  opportunity: Opportunity,
   user: User
 ): number {
   let score = 0;
 
-  // +40 if level matches
-  if (scholarship.level === user.level) {
-    score += 40;
-  }
-
-  // +30 if field matches (case-insensitive partial match)
+  // +30 if user's category focus matches
   if (
-    scholarship.field.toLowerCase() === user.field_of_study.toLowerCase() ||
-    scholarship.field.toLowerCase().includes(user.field_of_study.toLowerCase()) ||
-    user.field_of_study.toLowerCase().includes(scholarship.field.toLowerCase())
+    user.category_focus &&
+    user.category_focus.includes(opportunity.category)
   ) {
     score += 30;
   }
 
-  // +20 if country matches preferred countries
+  // +25 type relevance (scholarships for students, jobs for career, etc.)
+  const typeMap: Record<string, string[]> = {
+    academic: ["scholarship", "fellowship"],
+    career: ["job", "internship"],
+    creative: ["creative_call", "grant"],
+    athletic: ["athletic_trial", "scholarship"],
+  };
+  const relevantTypes = typeMap[opportunity.category] || [];
+  if (relevantTypes.includes(opportunity.type)) {
+    score += 25;
+  }
+
+  // +20 skills match (stronger weighting)
+  if (user.skills && opportunity.skills) {
+    const matched = user.skills.filter((skill) =>
+      opportunity.skills.some(
+        (os) => os.toLowerCase() === skill.toLowerCase()
+      )
+    );
+    score += Math.min(matched.length * 8, 24);
+  }
+
+  // +15 location preference
   if (
     user.preferred_countries &&
     user.preferred_countries.some(
-      (c) => c.toLowerCase() === scholarship.country.toLowerCase()
+      (c) => c.toLowerCase() === opportunity.country.toLowerCase()
     )
   ) {
-    score += 20;
+    score += 15;
   }
 
-  // +10 random boost (for variety)
-  score += Math.floor(Math.random() * 10);
+  // +10 experience level match
+  if (
+    opportunity.level &&
+    opportunity.level.toLowerCase() === user.level.toLowerCase()
+  ) {
+    score += 10;
+  }
 
   return Math.min(score, 100);
 }
 
-export function sortScholarshipsByMatch(
-  scholarships: Scholarship[],
+export function sortOpportunitiesByMatch(
+  opportunities: Opportunity[],
   user: User
-): ScholarshipWithMatch[] {
-  const scored = scholarships.map((s) => ({
-    ...s,
-    match_score: computeMatchScore(s, user),
-  }));
-
-  return scored.sort((a, b) => b.match_score - a.match_score);
+): OpportunityWithMatch[] {
+  return opportunities
+    .map((o) => ({ ...o, match_score: computeMatchScore(o, user) }))
+    .sort((a, b) => b.match_score - a.match_score);
 }

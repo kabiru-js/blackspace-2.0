@@ -5,10 +5,15 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabaseClient";
 import { useAppStore } from "@/lib/store";
-import { Scholarship } from "@/lib/types";
+import { Opportunity } from "@/lib/types";
 
 const ApplicationModal = dynamic(
   () => import("@/components/ApplicationModal").then((m) => m.ApplicationModal),
+  { ssr: false, loading: () => null }
+);
+
+const JobApplyModal = dynamic(
+  () => import("@/components/JobApplyModal").then((m) => m.JobApplyModal),
   { ssr: false, loading: () => null }
 );
 import {
@@ -26,7 +31,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 
-interface LikedScholarship extends Scholarship {
+interface LikedScholarship extends Opportunity {
   swipe_id: string;
   hasApplication: boolean;
 }
@@ -38,7 +43,7 @@ export default function SavedPage() {
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<"match" | "deadline">("match");
   const [selectedScholarship, setSelectedScholarship] =
-    useState<Scholarship | null>(null);
+    useState<Opportunity | null>(null);
   const [showModal, setShowModal] = useState(false);
 
   const { user } = useAppStore();
@@ -75,7 +80,7 @@ export default function SavedPage() {
         .from("scholarships")
         .select("*")
         .in("id", scholarshipIds);
-      const scholarshipData = scholarships as (Scholarship & { id: string })[] | null;
+      const scholarshipData = scholarships as (Opportunity & { id: string })[] | null;
 
       if (!scholarshipData) {
         setLikedScholarships([]);
@@ -118,8 +123,8 @@ export default function SavedPage() {
     }
   };
 
-  const handleApplyWithAI = (scholarship: Scholarship) => {
-    setSelectedScholarship(scholarship);
+  const handleApplyWithAI = (opportunity: Opportunity) => {
+    setSelectedScholarship(opportunity);
     setShowModal(true);
   };
 
@@ -146,8 +151,8 @@ export default function SavedPage() {
             <div>
               <h1 className="text-lg font-bold text-white">Saved</h1>
               <p className="text-xs text-zinc-500">
-                {likedScholarships.length} scholarship
-                {likedScholarships.length !== 1 ? "s" : ""} liked
+                {likedScholarships.length} opportunity
+                {likedScholarships.length !== 1 ? "s" : ""} saved
               </p>
             </div>
           </div>
@@ -364,17 +369,26 @@ export default function SavedPage() {
       </div>
 
       {/* Application Modal */}
-      {selectedScholarship && (
+      {selectedScholarship && (selectedScholarship.type === "job" || selectedScholarship.type === "internship" ? (
+        <JobApplyModal
+          isOpen={showModal}
+          onClose={() => {
+            setShowModal(false);
+            setSelectedScholarship(null);
+          }}
+          opportunity={selectedScholarship}
+        />
+      ) : (
         <ApplicationModal
           isOpen={showModal}
           onClose={() => {
             setShowModal(false);
             setSelectedScholarship(null);
           }}
-          scholarship={selectedScholarship}
+          scholarship={selectedScholarship as any}
           userId={user.id}
         />
-      )}
+      ))}
     </div>
   );
 }
