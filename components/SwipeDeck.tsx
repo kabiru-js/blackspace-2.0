@@ -430,13 +430,13 @@ export function SwipeDeck({ activeCategory }: { activeCategory: string }) {
                   />
                 ))}
 
-              {/* Top card */}
               {currentCard && (
                 <SwipeCard
                   key={currentCard.id}
                   opportunity={currentCard}
                   onSwipe={handleSwipe}
                   isTop={true}
+                  onApplyAI={() => generateApplication(currentCard)}
                 />
               )}
             </>

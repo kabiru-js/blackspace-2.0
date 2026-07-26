@@ -1,3 +1,6 @@
+// Load .env.local for local development
+try { require("dotenv").config({ path: require("path").resolve(process.cwd(), ".env.local") }); } catch {}
+
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
 

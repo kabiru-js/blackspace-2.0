@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import { OpportunityWithMatch, CATEGORY_LABELS, CATEGORY_COLORS, TYPE_LABELS } from "@/lib/types";
 import { MapPin, Building2, Clock, Sparkles, Briefcase, Palette, Dumbbell, GraduationCap } from "lucide-react";
+import { DetailView } from "./DetailView";
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   academic: <GraduationCap className="w-3.5 h-3.5" />,
@@ -17,6 +18,7 @@ interface SwipeCardProps {
   onSwipe: (direction: "left" | "right") => void;
   stackIndex?: number;
   isTop: boolean;
+  onApplyAI?: () => void;
 }
 
 export function SwipeCard({
@@ -24,8 +26,12 @@ export function SwipeCard({
   onSwipe,
   stackIndex = 0,
   isTop,
+  onApplyAI,
 }: SwipeCardProps) {
   const [exitX, setExitX] = useState(0);
+  const [showDetail, setShowDetail] = useState(false);
+  const [tapped, setTapped] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0 });
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-300, 0, 300], [-15, 0, 15]);
   const opacity = useTransform(
@@ -43,6 +49,14 @@ export function SwipeCard({
   const sideOffset = isTop ? 0 : (stackIndex + 1) * 4;
 
   const handleDragEnd = (_: any, info: any) => {
+    const dist = Math.abs(info.offset.x);
+
+    // Tap detection: if minimal movement, treat as tap
+    if (dist < 10 && Math.abs(info.offset.y) < 10) {
+      if (isTop) setShowDetail(true);
+      return;
+    }
+
     const threshold = 100;
     if (info.offset.x > threshold) {
       setExitX(500);
@@ -62,6 +76,7 @@ export function SwipeCard({
   const isUrgent = daysLeft > 0 && daysLeft <= 3;
 
   return (
+    <>
     <motion.div
       className="absolute w-full max-w-sm cursor-grab active:cursor-grabbing"
       style={{
@@ -243,5 +258,12 @@ export function SwipeCard({
         </div>
       </div>
     </motion.div>
+
+    <DetailView
+      opportunity={showDetail ? opportunity : null}
+      onClose={() => setShowDetail(false)}
+      onApply={onApplyAI}
+    />
+  </>
   );
 }
