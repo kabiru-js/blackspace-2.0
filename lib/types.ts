@@ -1,5 +1,10 @@
 // Blackspace v3 — Unified Opportunity Types
 
+// NOTE: these are known/labeled values used for internal scoring bonuses
+// and UI badges — they are NOT a closed set. Any opportunity can carry a
+// category/type outside this list (see Opportunity.category / .type below,
+// which are typed as `string`, not these unions). Tags are the primary,
+// unbounded classification mechanism — see Opportunity.tags.
 export type OpportunityCategory =
   | "academic"
   | "career"
@@ -13,7 +18,11 @@ export type OpportunityType =
   | "internship"
   | "grant"
   | "creative_call"
-  | "athletic_trial";
+  | "athletic_trial"
+  | "hackathon"
+  | "competition"
+  | "residency"
+  | "other";
 
 export type StudyLevel =
   | "undergraduate"
@@ -43,6 +52,10 @@ export interface User {
   category_focus: OpportunityCategory[];
   experience_level: string;
   created_at: string;
+  // v4 — intent-driven fields
+  interests: string[];        // "painting", "football", "fashion"
+  intents: string[];          // "learn", "earn", "compete", "create"
+  exploration_level: "focused" | "balanced" | "open";
 }
 
 export interface Opportunity {
@@ -51,9 +64,13 @@ export interface Opportunity {
   provider: string;
   country: string;
 
-  // v3 fields
-  category: OpportunityCategory;
-  type: OpportunityType;
+  // v4: category/type are open strings — they may hold a known
+  // OpportunityCategory/OpportunityType value, or something entirely new
+  // (e.g. "esports", "chess tournament", "spelling bee"). Never gate
+  // retrieval or scoring on these being one of the known values.
+  // `tags` is the field that ALWAYS carries the real classification signal.
+  category: OpportunityCategory | string;
+  type: OpportunityType | string;
   skills: string[];
   is_remote: boolean;
   location: string;
@@ -110,13 +127,13 @@ export const CATEGORY_LABELS: Record<OpportunityCategory, string> = {
 };
 
 export const CATEGORY_COLORS: Record<OpportunityCategory, string> = {
-  academic: "bg-violet-500/10 text-violet-400 border-violet-500/20",
-  career: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  creative: "bg-pink-500/10 text-pink-400 border-pink-500/20",
-  athletic: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+  academic: "var(--violet)",
+  career: "var(--cyan)",
+  creative: "var(--magenta)",
+  athletic: "var(--orange)",
 };
 
-export const TYPE_LABELS: Record<OpportunityType, string> = {
+export const TYPE_LABELS: Record<string, string> = {
   scholarship: "Scholarship",
   fellowship: "Fellowship",
   job: "Job",
@@ -124,4 +141,28 @@ export const TYPE_LABELS: Record<OpportunityType, string> = {
   grant: "Grant",
   creative_call: "Creative Call",
   athletic_trial: "Athletic Trial",
+  hackathon: "Hackathon",
+  competition: "Competition",
+  residency: "Residency",
+  other: "Opportunity",
 };
+
+// Safe label lookup — gracefully handles ANY type string, known or unknown,
+// instead of falling through to `undefined` or the raw snake_case value.
+export function getTypeLabel(type: string | null | undefined): string {
+  if (!type) return "Opportunity";
+  if (TYPE_LABELS[type]) return TYPE_LABELS[type];
+  // Title-case unknown types: "chess_tournament" -> "Chess Tournament"
+  return type
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Safe category label lookup, same principle.
+export function getCategoryLabel(category: string | null | undefined): string {
+  if (!category) return "General";
+  if (CATEGORY_LABELS[category as OpportunityCategory]) return CATEGORY_LABELS[category as OpportunityCategory];
+  return category
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}

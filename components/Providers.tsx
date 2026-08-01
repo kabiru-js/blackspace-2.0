@@ -35,7 +35,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
         }
         
         if (profile) {
-          useAppStore.getState().setUser(profile);
+          // Ensure v4 fields have defaults
+          const enrichedProfile = {
+            ...profile,
+            interests: profile.interests || [],
+            intents: profile.intents || [],
+            exploration_level: profile.exploration_level || "balanced",
+          };
+          useAppStore.getState().setUser(enrichedProfile);
           if (pathname === "/login" || pathname === "/") router.push("/swipe");
         } else if (pathname !== "/onboarding" && pathname !== "/" && pathname !== "/login") {
           router.push("/onboarding");
@@ -50,8 +57,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="w-12 h-12 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--black)" }}>
+        <div className="w-12 h-12 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "var(--lime)", borderTopColor: "transparent" }} />
       </div>
     );
   }

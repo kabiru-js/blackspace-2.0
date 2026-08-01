@@ -23,3 +23,7 @@ Thumbs.db
 # Build
 dist/
 build/
+
+# Stray artifacts
+nul
+Design Blackspace logo/

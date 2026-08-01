@@ -1,0 +1,137 @@
+{
+  "_comment": "Updated after the architecture fix. See docs below for what changed and why.",
+
+  "_the_original_bug": "Every interest that wasn't in a hardcoded 4-category x 7-type enum resolved to category:null, type:null AND was invisible to intent-pill filtering (SwipeDeck used a hard `.in('type', [...])` Supabase filter). This meant the product could only ever represent the handful of opportunity shapes its authors thought to enumerate in advance — the opposite of 'opportunity-agnostic'.",
+
+  "_the_fix_summary": [
+    "1. lib/types.ts — OpportunityCategory/OpportunityType are now open string types. Known values still get clean labels; unknown values (e.g. 'chess_tournament') are auto-title-cased via getTypeLabel()/getCategoryLabel() instead of breaking.",
+    "2. lib/matching.ts — new inferIntents(type, tags) is the single source of truth for intent inference. It layers: (a) known-type fast path, (b) tag/keyword overlap that works for ANY type. Used by both scoring and onboarding.",
+    "3. components/SwipeDeck.tsx — intent pill filtering now uses a tag-OR-type Supabase query (`type.in.(...)` OR `tags.ov.{...}`) instead of a hard type filter, so unrecognized types with relevant tags still surface under the right pill.",
+    "4. app/api/ai-search/route.ts — QUERY_NORMS extended with hackathon/competition/chess/esports/etc. The DeepSeek prompt no longer forces category/type into a closed enum — it can invent a short snake_case value, and keywords are now GUARANTEED non-empty via extractKeywords() as a hard fallback.",
+    "5. app/api/generate-feed/route.ts — removed the harmful default of category:'academic', type:'scholarship' for anything unmatched (this was silently mislabeling data). category/type now stay null when unmatched; tags always carry the real signal.",
+    "6. app/onboarding/page.tsx — added Hackathons, Game Jams, Startup Weekends, Chess Tournaments, Esports, Debate, Robotics, Science Fairs as real suggestion chips + keyword triggers, and now uses the centralized inferIntents() instead of a second hardcoded map."
+  ],
+
+  "_comment_1_request": "POST /api/ai-search — user types this in the Search tab",
+  "request": {
+    "query": "I want hackathon opportunities",
+    "userId": "usr_7f3a2b9c"
+  },
+
+  "response_after_fix": {
+    "parsed": {
+      "category": "career",
+      "type": "hackathon",
+      "keywords": ["hackathon", "coding", "build"],
+      "location": null,
+      "is_remote": null,
+      "funding_type": null,
+      "level": null,
+      "field": null,
+      "age_under": null,
+      "country": null
+    },
+    "query": "I want hackathon opportunities",
+    "hasAiParsing": true
+  },
+
+  "_comment_2_untrained_query": "Proof the fix generalizes: a query for something with ZERO hardcoded support anywhere in the system.",
+  "request_untrained_example": {
+    "query": "I want to compete in a spelling bee",
+    "userId": "usr_7f3a2b9c"
+  },
+  "response_untrained_example": {
+    "parsed": {
+      "category": "academic",
+      "type": "competition",
+      "keywords": ["spelling", "compete", "bee"],
+      "location": null,
+      "is_remote": null,
+      "funding_type": null,
+      "level": null,
+      "field": null,
+      "age_under": null,
+      "country": null
+    },
+    "query": "I want to compete in a spelling bee",
+    "hasAiParsing": true,
+    "_note": "Matched via the new 'spelling bee' QUERY_NORMS entry AND getBasicParsing()'s broadened keyword net. Even a query with NO norm entry at all (e.g. 'I want to join a underwater basket weaving guild') would still return non-null keywords via extractKeywords(), guaranteeing tag-based scoring never returns zero signal."
+  },
+
+  "_comment_3_generate_feed": "POST /api/generate-feed — fires when the swipe deck runs low, using user.interests derived from onboarding.",
+  "generate_feed_request": {
+    "userId": "usr_7f3a2b9c",
+    "interests": ["coding", "hackathons", "building products"],
+    "intents": ["create", "compete"],
+    "preferredCountries": ["Nigeria", "United Kingdom"],
+    "explorationLevel": "balanced"
+  },
+
+  "generate_feed_llm_queries_generated": [
+    "international student hackathons 2026 remote",
+    "fintech hackathons Africa prize money",
+    "AI hackathons global beginner friendly",
+    "university coding competitions team based",
+    "startup weekend hackathons Europe",
+    "virtual hackathons with cash prizes",
+    "Google Devpost hackathons open registration",
+    "Nigeria tech hackathons Lagos Abuja"
+  ],
+
+  "_comment_4_final_scored_cards": "What lands in the swipe deck. category/type are now correctly 'career'/'hackathon' instead of the old harmful default of 'academic'/'scholarship'.",
+  "swipe_deck_cards": [
+    {
+      "id": "opp_9a41f2",
+      "title": "Global AI Hackathon 2026",
+      "provider": "Devpost",
+      "country": "Global",
+      "category": "career",
+      "type": "hackathon",
+      "skills": ["Python", "Machine Learning", "React"],
+      "is_remote": true,
+      "location": "Remote",
+      "level": "all",
+      "field": "Software Engineering",
+      "funding_type": "paid",
+      "deadline": "2026-09-14",
+      "description": "48-hour virtual hackathon building AI-powered tools. $50,000 in prizes across 6 tracks. Open to students and early-career developers worldwide.",
+      "eligibility": "18+, individual or team up to 4",
+      "requirements": "Working prototype, 3-min demo video, GitHub repo",
+      "application_link": "https://devpost.com/hackathons/global-ai-2026",
+      "tags": ["hackathon", "ai", "coding", "remote", "team"],
+      "created_at": "2026-07-20T10:00:00.000Z",
+      "match_score": 91
+    },
+    {
+      "id": "opp_3c7e88",
+      "title": "Lagos Fintech Hackathon",
+      "provider": "Flutterwave",
+      "country": "Nigeria",
+      "category": "career",
+      "type": "hackathon",
+      "skills": ["JavaScript", "Node.js", "Payments API"],
+      "is_remote": false,
+      "location": "Lagos, Nigeria",
+      "level": "early_career",
+      "field": "Software Engineering",
+      "funding_type": "paid",
+      "deadline": "2026-08-30",
+      "description": "In-person 36-hour hackathon focused on financial inclusion. Winners get funding, mentorship, and a fast-track interview at Flutterwave.",
+      "eligibility": "Nigerian residents or students, teams of 2-5",
+      "requirements": "Pitch deck, working demo",
+      "application_link": "https://flutterwave.com/hackathon",
+      "tags": ["hackathon", "fintech", "coding", "nigeria", "team"],
+      "created_at": "2026-07-18T09:00:00.000Z",
+      "match_score": 87
+    }
+  ],
+
+  "_comment_5_intent_pill_query": "How the 'Compete' pill now finds this card even if a future opportunity has type:'chess_tournament' (not in the fixed intentPillToTypes list) — Supabase .or() query built in SwipeDeck.",
+  "swipedeck_supabase_query_example": {
+    "pill": "compete",
+    "intentTypes": ["athletic_trial", "hackathon", "competition"],
+    "tagKeywords": ["trial", "tournament", "competition", "contest", "championship", "hackathon", "league", "match", "race", "marathon", "esports", "chess", "debate", "spelling"],
+    "generated_filter": "type.in.(athletic_trial,hackathon,competition),tags.ov.{trial,tournament,competition,contest,championship,hackathon,league,match,race,marathon,esports,chess,debate,spelling}",
+    "_note": "An opportunity with type:'chess_tournament' (still not in intentTypes) but tags:['chess','tournament'] now matches via the tags.ov (array overlap) clause instead of being invisibly excluded."
+  }
+}

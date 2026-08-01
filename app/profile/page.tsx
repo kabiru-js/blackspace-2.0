@@ -5,18 +5,10 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
 import { useAppStore } from "@/lib/store";
 import { motion } from "framer-motion";
-import { User, StudyLevel } from "@/lib/types";
-import {
-  ArrowLeft,
-  Save,
-  Loader2,
-  GraduationCap,
-  BookOpen,
-  Globe,
-  Target,
-  CheckCircle2,
-  Lightbulb,
-} from "lucide-react";
+import { User } from "@/lib/types";
+import { Save, Loader2, Globe, Target, CheckCircle2, Sparkles, X, Plus, User as UserIcon, Search } from "lucide-react";
+import { matchSuggestions, buildInterests, DiscoverySuggestion } from "@/lib/discovery";
+import { inferIntents } from "@/lib/matching";
 
 const COUNTRIES = [
   "United Kingdom", "United States", "Germany", "Canada", "Australia", "France",
@@ -26,22 +18,14 @@ const COUNTRIES = [
   "Turkey", "Poland", "Hungary", "Czech Republic",
 ];
 
-const STUDY_LEVELS: StudyLevel[] = ["undergraduate", "masters", "phd"];
-
-const FIELDS = [
-  "Accounting", "Agriculture", "Architecture", "Artificial Intelligence",
-  "Biology", "Biomedical Engineering", "Biotechnology", "Business",
-  "Chemical Engineering", "Chemistry", "Civil Engineering", "Computer Science",
-  "Data Science", "Design", "Economics", "Education", "Electrical Engineering",
-  "Energy", "Engineering", "Environmental Science", "Environmental Studies",
-  "Finance", "History", "Information Technology", "International Business",
-  "International Relations", "Law", "Marine Biology", "Marketing", "Mathematics",
-  "Mechanical Engineering", "Medicine", "Neuroscience", "Nursing",
-  "Pharmacy", "Philosophy", "Physics", "Political Science", "Psychology",
-  "Public Health", "Public Policy", "Renewable Energy", "Robotics",
-  "Sociology", "Software Engineering", "Statistics", "Sustainable Development",
-  "Urban Planning", "Various", "Water Management",
-];
+const mono = { fontFamily: "'JetBrains Mono', monospace" };
+const display = { fontFamily: "'Space Grotesk', sans-serif" };
+const sectionStyle = { background: "linear-gradient(160deg, var(--card2), var(--card))", border: "1px solid var(--line-strong)", borderRadius: "18px" };
+const inputStyle = {
+  background: "var(--card)", border: "1px solid var(--line-strong)", color: "var(--text)",
+  fontFamily: "'JetBrains Mono', monospace", outline: "none",
+  transition: "border-color .2s ease, box-shadow .2s ease",
+};
 
 export default function ProfilePage() {
   const { user, setUser } = useAppStore();
@@ -50,343 +34,337 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
-  const [formData, setFormData] = useState({
-    full_name: "",
-    country: "",
-    level: "" as StudyLevel | "",
-    field_of_study: "",
-    gpa: "",
-    preferred_countries: [] as string[],
-    goals: "",
-  });
+  // ── Form state — fully agnostic, expressed in the user's own words ──
+  const [fullName, setFullName] = useState("");
+  const [country, setCountry] = useState("");
+  const [seekingQuery, setSeekingQuery] = useState("");       // free text: "what are you looking for?"
+  const [selectedSuggestions, setSelectedSuggestions] = useState<DiscoverySuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [skillsInput, setSkillsInput] = useState("");
+  const [skills, setSkills] = useState<string[]>([]);
+  const [preferredCountries, setPreferredCountries] = useState<string[]>([]);
+  const [goals, setGoals] = useState("");
 
+  const isGlobal = preferredCountries.includes("__global__");
+
+  // Seed form from existing profile
   useEffect(() => {
-    if (user) {
-      setFormData({
-        full_name: user.full_name || "",
-        country: user.country || "",
-        level: user.level || "",
-        field_of_study: user.field_of_study || "",
-        gpa: user.gpa || "",
-        preferred_countries: user.preferred_countries || [],
-        goals: user.goals || "",
-      });
+    if (!user) return;
+    setFullName(user.full_name || "");
+    setCountry(user.country || "");
+    setGoals(user.goals || "");
+    setSkills(user.skills || []);
+    setPreferredCountries(user.preferred_countries?.length ? [...user.preferred_countries] : []);
+
+    // Rebuild selected suggestions from stored interests where possible
+    const storedInterests = user.interests || [];
+    if (storedInterests.length > 0) {
+      const seeded = storedInterests
+        .slice(0, 5)
+        .map((interest) => matchSuggestions(interest)[0])
+        .filter(Boolean) as DiscoverySuggestion[];
+      setSelectedSuggestions(seeded);
     }
   }, [user]);
 
-  useEffect(() => {
-    if (!user) return;
-    setLoadingSuggestions(true);
-    fetch("/api/enrich-profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        full_name: user.full_name,
-        country: user.country,
-        level: user.level,
-        field_of_study: user.field_of_study,
-        goals: user.goals,
-        preferred_countries: user.preferred_countries,
-      }),
-    })
-      .then((r) => r.json())
-      .then((d) => setSuggestions(d.suggestions || []))
-      .finally(() => setLoadingSuggestions(false));
-  }, [user?.id]);
+  const handleSeekingChange = (value: string) => {
+    setSeekingQuery(value);
+    if (!value.trim()) { setShowSuggestions(false); return; }
+    const matched = matchSuggestions(value);
+    setShowSuggestions(matched.length > 0);
+    // Keep it simple: auto-toggle suggestions inline as the user types.
+    // We also cache the last matched set for the "We found these" list.
+    window.clearTimeout((window as any)._bs_profile_suggest_timer);
+    (window as any)._bs_profile_suggest_timer = window.setTimeout(() => {
+      const m = matchSuggestions(value);
+      setShowSuggestions(m.length > 0);
+    }, 200);
+  };
+
+  const toggleSuggestion = (s: DiscoverySuggestion) => {
+    setSelectedSuggestions((prev) => {
+      const exists = prev.find((p) => p.key === s.key);
+      return exists ? prev.filter((p) => p.key !== s.key) : [...prev, s];
+    });
+  };
+
+  const addSkill = () => {
+    const v = skillsInput.trim();
+    if (v && !skills.includes(v)) setSkills([...skills, v]);
+    setSkillsInput("");
+  };
+
+  const removeSkill = (skill: string) => setSkills(skills.filter((s) => s !== skill));
+
+  const toggleCountry = (c: string) => {
+    setPreferredCountries((prev) => {
+      let next = [...prev];
+      if (c === "__global__") {
+        next = next.includes("__global__") ? [] : ["__global__", ...COUNTRIES];
+      } else {
+        next = next.filter((x) => x !== "__global__");
+        next = next.includes(c) ? next.filter((x) => x !== c) : [...next, c];
+        if (next.length === COUNTRIES.length) next = ["__global__", ...COUNTRIES];
+      }
+      return next;
+    });
+  };
 
   const handleSave = async () => {
     if (!user) return;
-    setSaving(true);
-    setError(null);
-
+    setSaving(true); setError(null);
     try {
-      const { error: updateError } = await (supabase as any)
-        .from("users")
-        .update({
-          full_name: formData.full_name,
-          country: formData.country,
-          level: formData.level,
-          field_of_study: formData.field_of_study,
-          gpa: formData.gpa || null,
-          preferred_countries: formData.preferred_countries,
-          goals: formData.goals,
-        })
-        .eq("id", user.id);
+      // Build interests from free text + tapped suggestions
+      const interests = buildInterests(seekingQuery, selectedSuggestions.map((s) => s.label));
+      const effectiveInterests = interests.length > 0 ? interests : (user.interests || []);
 
+      // Infer intents from selected suggestion types (centralized, tag-aware)
+      const intentSet = new Set<string>();
+      selectedSuggestions.forEach((s) => {
+        inferIntents(s.type, [s.label.toLowerCase()]).forEach((i) => intentSet.add(i));
+      });
+      const intents = intentSet.size > 0 ? Array.from(intentSet) : (user.intents || []);
+
+      const countries = preferredCountries.filter((c) => c !== "__global__");
+
+      const { error: updateError } = await (supabase as any).from("users").update({
+        full_name: fullName,
+        country,
+        goals: goals || seekingQuery,
+        skills,
+        interests: effectiveInterests,
+        intents,
+        preferred_countries: countries,
+        exploration_level: "balanced",
+      }).eq("id", user.id);
       if (updateError) throw updateError;
 
-      setUser({ ...user, ...formData, level: formData.level as StudyLevel });
+      setUser({
+        ...user,
+        full_name: fullName,
+        country,
+        goals: goals || seekingQuery,
+        skills,
+        interests: effectiveInterests,
+        intents,
+        preferred_countries: countries,
+        exploration_level: "balanced" as const,
+      } as User);
+
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {
       setError(err?.message || "Failed to save");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const toggleCountry = (country: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      preferred_countries: prev.preferred_countries.includes(country)
-        ? prev.preferred_countries.filter((c) => c !== country)
-        : [...prev.preferred_countries, country],
-    }));
+    } finally { setSaving(false); }
   };
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="w-10 h-10 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--black)" }}>
+        <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "var(--lime)", borderTopColor: "transparent" }} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen" style={{ background: "var(--black)" }}>
       {/* Header */}
-      <div className="sticky top-0 z-30 bg-black/60 backdrop-blur-md border-b border-zinc-800/50">
+      <div className="sticky top-0 z-30 border-b" style={{ background: "rgba(5,5,6,.75)", backdropFilter: "blur(14px)", borderColor: "var(--line)" }}>
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.back()}
-              className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center hover:bg-zinc-700 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4 text-zinc-400" />
-            </button>
-            <h1 className="text-lg font-bold text-white">Your Profile</h1>
+          <div>
+            <h1 className="text-lg font-bold" style={{ ...display, color: "var(--text)" }}>Profile</h1>
+            <p className="text-xs" style={{ ...mono, color: "var(--faint)" }}>Tell Blackspace what matters to you</p>
           </div>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-1.5 transition-all ${
-              saved
-                ? "bg-green-500/20 text-green-400"
-                : "bg-accent text-white hover:bg-accent-dark"
-            } disabled:opacity-50`}
-          >
-            {saved ? (
-              <>
-                <CheckCircle2 className="w-4 h-4" />
-                Saved
-              </>
-            ) : saving ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Save
-              </>
-            )}
+          <button onClick={handleSave} disabled={saving}
+            className="px-4 py-1.5 rounded-full text-sm font-medium flex items-center gap-1.5 transition-all"
+            style={{
+              ...mono,
+              background: saved ? "rgba(26,174,57,.15)" : "var(--lime)",
+              border: saved ? "1px solid rgba(26,174,57,.3)" : "none",
+              color: saved ? "var(--lime)" : "#050506",
+              opacity: saving ? 0.5 : 1,
+            }}>
+            {saved ? <><CheckCircle2 className="w-4 h-4" /> Saved</> : saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : <><Save className="w-4 h-4" /> Save</>}
           </button>
         </div>
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-6 pb-24 space-y-6">
         {error && (
-          <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400">
+          <div className="p-3 rounded-full border text-sm" style={{ background: "rgba(255,46,159,.06)", borderColor: "rgba(255,46,159,.15)", color: "var(--magenta)", ...mono }}>
             {error}
           </div>
         )}
 
-        {/* AI Profile Suggestions */}
-        {!loadingSuggestions && suggestions.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-accent/5 border border-accent/20 rounded-2xl p-4"
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <Lightbulb className="w-4 h-4 text-accent-light" />
-              <span className="text-sm font-semibold text-accent-light">AI Suggestions</span>
-            </div>
-            <ul className="space-y-2">
-              {suggestions.map((s, i) => (
-                <li key={i} className="text-sm text-zinc-300 flex items-start gap-2">
-                  <span className="text-accent-light mt-1">•</span>
-                  {s}
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-        )}
+        {/* ── About you ── */}
+        <div className="rounded-2xl p-5 space-y-3" style={sectionStyle}>
+          <div className="flex items-center gap-2" style={{ color: "var(--lime)" }}>
+            <UserIcon className="w-5 h-5" />
+            <h3 className="font-semibold" style={{ ...display, color: "var(--text)" }}>About you</h3>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm" style={{ color: "var(--faint)" }}>Name</label>
+            <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your name"
+              className="w-full rounded-full py-2.5 px-4 text-sm"
+              style={{ ...inputStyle, borderColor: fullName ? "var(--lime)" : "var(--line-strong)" }} />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm" style={{ color: "var(--faint)" }}>Based in</label>
+            <select value={country} onChange={(e) => setCountry(e.target.value)}
+              className="w-full rounded-full py-2.5 px-4 text-sm"
+              style={{ ...inputStyle, background: "var(--card)" }}>
+              <option value="" style={{ background: "var(--card)" }}>Select your country</option>
+              {COUNTRIES.map((c) => <option key={c} value={c} style={{ background: "var(--card)" }}>{c}</option>)}
+            </select>
+          </div>
+        </div>
 
-        {/* Personal Info */}
-        <Section icon={<GraduationCap className="w-5 h-5" />} title="Personal Info">
-          <Input
-            label="Full Name"
-            value={formData.full_name}
-            onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-          />
-          <Select
-            label="Your Country"
-            value={formData.country}
-            onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-            options={COUNTRIES}
-            placeholder="Select country"
-          />
-        </Section>
+        {/* ── What are you looking for? ── */}
+        <div className="rounded-2xl p-5 space-y-3" style={sectionStyle}>
+          <div className="flex items-center gap-2" style={{ color: "var(--lime)" }}>
+            <Search className="w-5 h-5" />
+            <h3 className="font-semibold" style={{ ...display, color: "var(--text)" }}>What are you looking for?</h3>
+          </div>
+          <p className="text-xs" style={{ color: "var(--faint)" }}>
+            Describe it in your own words — anything from &quot;art school&quot; to &quot;football trials&quot; to &quot;start my own bakery&quot;.
+          </p>
 
-        {/* Academics */}
-        <Section icon={<BookOpen className="w-5 h-5" />} title="Academics">
-          <div className="space-y-2">
-            <label className="text-sm text-zinc-400">Study Level</label>
-            <div className="grid grid-cols-3 gap-2">
-              {STUDY_LEVELS.map((level) => (
-                <button
-                  key={level}
-                  onClick={() => setFormData({ ...formData, level })}
-                  className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                    formData.level === level
-                      ? "bg-accent/20 border-accent/50 text-accent-light"
-                      : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-600"
-                  }`}
-                >
-                  {level.charAt(0).toUpperCase() + level.slice(1)}
+          {/* Selected interests */}
+          {selectedSuggestions.length > 0 && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="flex flex-wrap gap-2">
+              {selectedSuggestions.map((s) => (
+                <button key={s.key} onClick={() => toggleSuggestion(s)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all"
+                  style={{ ...mono, borderColor: "var(--lime)", background: "rgba(214,255,63,.08)", color: "var(--lime)" }}>
+                  <span>{s.icon}</span> {s.label}
+                  <X className="w-3 h-3 ml-0.5" />
                 </button>
               ))}
-            </div>
-          </div>
-          <Select
-            label="Field of Study"
-            value={formData.field_of_study}
-            onChange={(e) => setFormData({ ...formData, field_of_study: e.target.value })}
-            options={FIELDS}
-            placeholder="Select field"
-          />
-          <Input
-            label="GPA (optional)"
-            value={formData.gpa}
-            onChange={(e) => setFormData({ ...formData, gpa: e.target.value })}
-            placeholder="e.g. 3.7 / 4.0"
-          />
-        </Section>
+            </motion.div>
+          )}
 
-        {/* Preferences */}
-        <Section icon={<Globe className="w-5 h-5" />} title="Preferred Countries">
-          <p className="text-xs text-zinc-500 mb-3">
-            {formData.preferred_countries.length} selected
+          <input
+            type="text"
+            value={seekingQuery}
+            onChange={(e) => handleSeekingChange(e.target.value)}
+            onFocus={() => { if (seekingQuery.trim()) setShowSuggestions(true); }}
+            placeholder='"I want to study fine arts"'
+            className="w-full rounded-full py-3 px-4 text-sm"
+            style={{ ...inputStyle, borderColor: seekingQuery ? "var(--lime)" : "var(--line-strong)", boxShadow: seekingQuery ? "0 0 0 4px rgba(214,255,63,.12)" : "none" }}
+          />
+
+          {/* Dynamic suggestions */}
+          {showSuggestions && (
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
+              <p className="text-[11px] uppercase tracking-[0.06em]" style={{ ...mono, color: "var(--faint)" }}>
+                <Sparkles className="w-3 h-3 inline mr-1" style={{ color: "var(--lime)" }} /> We found these
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {matchSuggestions(seekingQuery).map((s) => {
+                  const isSelected = selectedSuggestions.some((si) => si.key === s.key);
+                  return (
+                    <button key={s.key} onClick={() => toggleSuggestion(s)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border text-xs font-medium transition-all"
+                      style={{ ...mono, borderColor: isSelected ? "var(--lime)" : "var(--line-strong)", background: isSelected ? "rgba(214,255,63,.08)" : "transparent", color: isSelected ? "var(--lime)" : "var(--faint)" }}>
+                      <span className="text-sm">{s.icon}</span> {s.label}
+                      {isSelected && <CheckCircle2 className="w-3 h-3 ml-0.5" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </div>
+
+        {/* ── Skills & talents ── */}
+        <div className="rounded-2xl p-5 space-y-3" style={sectionStyle}>
+          <div className="flex items-center gap-2" style={{ color: "var(--lime)" }}>
+            <Target className="w-5 h-5" />
+            <h3 className="font-semibold" style={{ ...display, color: "var(--text)" }}>Skills &amp; talents</h3>
+          </div>
+          <p className="text-xs" style={{ color: "var(--faint)" }}>
+            Anything you bring to the table — coding, cooking, painting, languages, leadership...
+          </p>
+          {skills.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {skills.map((skill) => (
+                <span key={skill} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs uppercase tracking-[0.04em]"
+                  style={{ ...mono, borderColor: "var(--line-strong)", color: "var(--muted)", background: "var(--card)" }}>
+                  {skill}
+                  <button onClick={() => removeSkill(skill)} className="opacity-60 hover:opacity-100 transition-opacity">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={skillsInput}
+              onChange={(e) => setSkillsInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }}
+              placeholder="Add a skill and press Enter"
+              className="flex-1 rounded-full py-2.5 px-4 text-sm"
+              style={inputStyle}
+            />
+            <button onClick={addSkill}
+              className="w-10 h-10 rounded-full border flex items-center justify-center flex-shrink-0 transition-all"
+              style={{ borderColor: skillsInput.trim() ? "var(--lime)" : "var(--line-strong)", color: skillsInput.trim() ? "var(--lime)" : "var(--faint)", background: "var(--card)" }}>
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* ── Where are you open to? ── */}
+        <div className="rounded-2xl p-5 space-y-3" style={sectionStyle}>
+          <div className="flex items-center gap-2" style={{ color: "var(--lime)" }}>
+            <Globe className="w-5 h-5" />
+            <h3 className="font-semibold" style={{ ...display, color: "var(--text)" }}>Where are you open to?</h3>
+          </div>
+          <p className="text-xs" style={{ ...mono, color: "var(--faint)" }}>
+            {isGlobal ? "🌍 Anywhere" : `${preferredCountries.filter((c) => c !== "__global__").length} country${preferredCountries.filter((c) => c !== "__global__").length !== 1 ? "s" : ""} selected`}
           </p>
           <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-            {COUNTRIES.map((country) => (
-              <button
-                key={country}
-                onClick={() => toggleCountry(country)}
-                className={`py-2 px-3 rounded-xl text-xs font-medium border transition-all text-left ${
-                  formData.preferred_countries.includes(country)
-                    ? "bg-accent/20 border-accent/50 text-accent-light"
-                    : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-600"
-                }`}
-              >
-                {country}
-              </button>
-            ))}
+            <button onClick={() => toggleCountry("__global__")}
+              className="col-span-2 py-3 px-4 rounded-full border transition-all flex items-center justify-center gap-2 text-[13px]"
+              style={{ ...mono, borderColor: isGlobal ? "var(--lime)" : "var(--line-strong)", background: isGlobal ? "rgba(214,255,63,.06)" : "transparent", color: isGlobal ? "var(--lime)" : "var(--faint)" }}>
+              🌍 Anywhere (Global)
+            </button>
+            {COUNTRIES.map((c) => {
+              const selected = preferredCountries.includes(c);
+              return (
+                <button key={c} onClick={() => !isGlobal && toggleCountry(c)}
+                  className="py-2 px-3 rounded-full text-[11px] text-left border transition-all font-medium uppercase tracking-[0.04em]"
+                  style={{
+                    ...mono,
+                    borderColor: selected ? "var(--lime)" : "var(--line-strong)",
+                    color: selected ? "var(--lime)" : "var(--faint)",
+                    background: selected ? "rgba(214,255,63,.06)" : "transparent",
+                    opacity: isGlobal && !selected ? 0.3 : 1,
+                    cursor: isGlobal ? "default" : "pointer",
+                  }}>
+                  {c}
+                </button>
+              );
+            })}
           </div>
-        </Section>
+        </div>
 
-        {/* Goals */}
-        <Section icon={<Target className="w-5 h-5" />} title="Career Goals">
-          <textarea
-            value={formData.goals}
-            onChange={(e) => setFormData({ ...formData, goals: e.target.value })}
-            placeholder="What are your career and life goals?"
+        {/* ── Goals (optional) ── */}
+        <div className="rounded-2xl p-5 space-y-3" style={sectionStyle}>
+          <div className="flex items-center gap-2" style={{ color: "var(--lime)" }}>
+            <Target className="w-5 h-5" />
+            <h3 className="font-semibold" style={{ ...display, color: "var(--text)" }}>What are you working towards?</h3>
+          </div>
+          <textarea value={goals} onChange={(e) => setGoals(e.target.value)}
+            placeholder="Optional — the more you share, the smarter your feed gets"
             rows={4}
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-3 px-4 text-white placeholder:text-zinc-600 text-sm focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition-all resize-none"
-          />
-        </Section>
+            className="w-full rounded-xl py-3 px-4 text-sm outline-none resize-none transition-all"
+            style={inputStyle} />
+        </div>
       </div>
-    </div>
-  );
-}
-
-// Mini components
-function Section({
-  icon,
-  title,
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-5 space-y-3"
-    >
-      <div className="flex items-center gap-2 text-accent-light">
-        {icon}
-        <h3 className="font-semibold text-white">{title}</h3>
-      </div>
-      {children}
-    </motion.div>
-  );
-}
-
-function Input({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="text-sm text-zinc-400">{label}</label>
-      <input
-        type="text"
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2.5 px-4 text-white text-sm placeholder:text-zinc-600 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition-all"
-      />
-    </div>
-  );
-}
-
-function Select({
-  label,
-  value,
-  onChange,
-  options,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
-  options: string[];
-  placeholder?: string;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="text-sm text-zinc-400">{label}</label>
-      <select
-        value={value}
-        onChange={onChange}
-        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2.5 px-4 text-white text-sm focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition-all"
-      >
-        {placeholder && (
-          <option value="" className="bg-zinc-900">
-            {placeholder}
-          </option>
-        )}
-        {options.map((opt) => (
-          <option key={opt} value={opt} className="bg-zinc-900">
-            {opt}
-          </option>
-        ))}
-      </select>
     </div>
   );
 }

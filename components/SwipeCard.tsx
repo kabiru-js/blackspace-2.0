@@ -1,17 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
-import { OpportunityWithMatch, CATEGORY_LABELS, CATEGORY_COLORS, TYPE_LABELS } from "@/lib/types";
-import { MapPin, Building2, Clock, Sparkles, Briefcase, Palette, Dumbbell, GraduationCap } from "lucide-react";
+import { OpportunityWithMatch, getCategoryLabel, getTypeLabel } from "@/lib/types";
 import { DetailView } from "./DetailView";
-
-const CATEGORY_ICONS: Record<string, React.ReactNode> = {
-  academic: <GraduationCap className="w-3.5 h-3.5" />,
-  career: <Briefcase className="w-3.5 h-3.5" />,
-  creative: <Palette className="w-3.5 h-3.5" />,
-  athletic: <Dumbbell className="w-3.5 h-3.5" />,
-};
+import { MapPin, Clock, ChevronRight } from "lucide-react";
 
 interface SwipeCardProps {
   opportunity: OpportunityWithMatch;
@@ -21,249 +14,167 @@ interface SwipeCardProps {
   onApplyAI?: () => void;
 }
 
-export function SwipeCard({
-  opportunity,
-  onSwipe,
-  stackIndex = 0,
-  isTop,
-  onApplyAI,
-}: SwipeCardProps) {
+export function SwipeCard({ opportunity, onSwipe, stackIndex = 0, isTop, onApplyAI }: SwipeCardProps) {
   const [exitX, setExitX] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
-  const [tapped, setTapped] = useState(false);
-  const dragStart = useRef({ x: 0, y: 0 });
   const x = useMotionValue(0);
-  const rotate = useTransform(x, [-300, 0, 300], [-15, 0, 15]);
-  const opacity = useTransform(
-    x,
-    [-300, -100, 0, 100, 300],
-    [0.5, 1, 1, 1, 0.5]
-  );
+  const rotate = useTransform(x, [-300, 0, 300], [-12, 0, 12]);
+  const opacity = useTransform(x, [-300, -100, 0, 100, 300], [0.4, 1, 1, 1, 0.4]);
 
-  const likeOpacity = useTransform(x, [0, 100], [0, 1]);
-  const nopeOpacity = useTransform(x, [-100, 0], [1, 0]);
-
-  const scale = isTop ? 1 : 0.95 - stackIndex * 0.02;
+  const scale = isTop ? 1 : 0.96 - stackIndex * 0.02;
   const zIndex = isTop ? 10 : 5 - stackIndex;
   const offset = isTop ? 0 : (stackIndex + 1) * 6;
   const sideOffset = isTop ? 0 : (stackIndex + 1) * 4;
 
   const handleDragEnd = (_: any, info: any) => {
     const dist = Math.abs(info.offset.x);
-
-    // Tap detection: if minimal movement, treat as tap
     if (dist < 10 && Math.abs(info.offset.y) < 10) {
       if (isTop) setShowDetail(true);
       return;
     }
-
-    const threshold = 100;
-    if (info.offset.x > threshold) {
-      setExitX(500);
-      onSwipe("right");
-    } else if (info.offset.x < -threshold) {
-      setExitX(-500);
-      onSwipe("left");
-    }
+    if (info.offset.x > 100) { setExitX(500); onSwipe("right"); }
+    else if (info.offset.x < -100) { setExitX(-500); onSwipe("left"); }
   };
 
-  const daysLeft = Math.ceil(
-    (new Date(opportunity.deadline).getTime() - Date.now()) /
-      (1000 * 60 * 60 * 24)
-  );
+  const daysLeft = Math.ceil((new Date(opportunity.deadline).getTime() - Date.now()) / 86400000);
+  const isUrgent = daysLeft >= 0 && daysLeft <= 3;
 
-  const isDeadlineSoon = daysLeft > 0 && daysLeft <= 14;
-  const isUrgent = daysLeft > 0 && daysLeft <= 3;
+  const cardStyle = {
+    background: "linear-gradient(160deg, var(--card2), var(--card))",
+    border: "1px solid var(--line-strong)",
+    borderRadius: "22px",
+    boxShadow: "0 30px 70px rgba(0,0,0,.6)",
+  };
+
+  const categoryColors: Record<string, string> = {
+    academic: "var(--lime)",
+    career: "var(--cyan)",
+    creative: "var(--violet)",
+    athletic: "var(--magenta)",
+  };
+  const accentColor = categoryColors[opportunity.category] || "var(--lime)";
 
   return (
     <>
-    <motion.div
-      className="absolute w-full max-w-sm cursor-grab active:cursor-grabbing"
-      style={{
-        x,
-        rotate,
-        opacity,
-        scale,
-        zIndex,
-        top: offset,
-        left: sideOffset,
-        right: sideOffset,
-        position: "absolute",
-      }}
-      drag={isTop ? "x" : false}
-      dragConstraints={{ left: 0, right: 0 }}
-      onDragEnd={handleDragEnd}
-      initial={{ scale: 0.9, opacity: 0 }}
-      animate={{ scale, opacity: 1 }}
-      exit={{ x: exitX, opacity: 0, transition: { duration: 0.3 } }}
-      transition={{ type: "spring", stiffness: 300, damping: 25 }}
-      whileTap={{ cursor: "grabbing" }}
-    >
-      {/* Like / Nope overlays */}
       <motion.div
-        className="absolute top-8 right-8 z-20"
-        style={{ opacity: likeOpacity }}
+        className="absolute w-full max-w-sm cursor-grab active:cursor-grabbing select-none"
+        style={{
+          x, rotate, opacity, scale, zIndex, top: offset, left: sideOffset, right: sideOffset,
+          position: "absolute",
+        }}
+        drag={isTop ? "x" : false}
+        dragConstraints={{ left: 0, right: 0 }}
+        onDragEnd={handleDragEnd}
+        initial={{ scale: 0.92, opacity: 0 }}
+        animate={{ scale, opacity: 1 }}
+        exit={{ x: exitX, opacity: 0, transition: { duration: 0.2, ease: "easeOut" } }}
+        transition={{ type: "spring", stiffness: 280, damping: 30 }}
+        whileTap={{ cursor: "grabbing" }}
       >
-        <div className="px-4 py-2 border-2 border-green-500 rounded-lg -rotate-12">
-          <span className="text-2xl font-black text-green-500 tracking-wider">
-            LIKE
-          </span>
-        </div>
-      </motion.div>
+        {/* Card glow pseudo-border via gradient pseudo */}
+        <div
+          className="absolute inset-0 rounded-[22px] pointer-events-none"
+          style={{
+            background: `linear-gradient(135deg, ${accentColor}, transparent 40%, transparent 60%, ${accentColor})`,
+            opacity: 0.3,
+            margin: "-1px",
+            zIndex: -1,
+          }}
+        />
 
-      <motion.div
-        className="absolute top-8 left-8 z-20"
-        style={{ opacity: nopeOpacity }}
-      >
-        <div className="px-4 py-2 border-2 border-red-500 rounded-lg rotate-12">
-          <span className="text-2xl font-black text-red-500 tracking-wider">
-            NOPE
-          </span>
-        </div>
-      </motion.div>
+        {/* Like / Save overlays */}
+        <motion.div className="absolute top-6 right-6 z-20" style={{ opacity: useTransform(x, [0, 80], [0, 1]) }}>
+          <span className="text-[20px] font-semibold text-[var(--lime)] tracking-[-0.02em]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Save</span>
+        </motion.div>
+        <motion.div className="absolute top-6 left-6 z-20" style={{ opacity: useTransform(x, [-80, 0], [1, 0]) }}>
+          <span className="text-[20px] font-semibold text-[var(--faint)] tracking-[-0.02em]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Not for me</span>
+        </motion.div>
 
-      {/* Card */}
-      <div className="relative rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-800 card-shadow">
-        {/* Gradient header */}
-        <div className="h-48 bg-gradient-to-br from-accent/30 via-accent-dark/20 to-black relative overflow-hidden">
-          <div className="absolute inset-0 bg-grid opacity-30" />
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent" />
-
-          {/* Badges */}
-          <div className="absolute top-4 left-4 right-4 flex items-start justify-between">
-            <div className="flex flex-wrap gap-2">
-              {/* Category badge */}
-              <span className={`px-3 py-1 border rounded-full text-xs font-semibold backdrop-blur-sm ${(CATEGORY_COLORS as any)[opportunity.category] || "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"}`}>
-                {CATEGORY_ICONS[opportunity.category]}
-                <span className="ml-1">{CATEGORY_LABELS[opportunity.category]}</span>
+        {/* Card */}
+        <div className="rounded-[22px] overflow-hidden" style={cardStyle}>
+          {/* Header */}
+          <div className="p-6 pb-4">
+            <div className="flex items-center justify-between mb-3">
+              <span
+                className="inline-flex items-center gap-[6px] text-[10.5px] uppercase tracking-[0.09em] px-3 py-1.5 rounded-full border"
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  borderColor: "var(--line-strong)",
+                  color: accentColor,
+                }}
+              >
+                <span className="w-[6px] h-[6px] rounded-full" style={{ background: accentColor }} />
+                {getCategoryLabel(opportunity.category)}
               </span>
-
-              {opportunity.funding_type === "full" && (
-                <span className="px-3 py-1 bg-green-500/20 border border-green-500/40 rounded-full text-xs font-semibold text-green-400 backdrop-blur-sm">
-                  FULLY FUNDED
+              <div className="flex items-center gap-3 text-[12px]" style={{ color: "var(--faint)", fontFamily: "'JetBrains Mono', monospace" }}>
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5" />{opportunity.country}
                 </span>
-              )}
-              {opportunity.is_remote && (
-                <span className="px-3 py-1 bg-blue-500/20 border border-blue-500/40 rounded-full text-xs font-semibold text-blue-400 backdrop-blur-sm">
-                  REMOTE
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span style={isUrgent ? { color: "var(--magenta)" } : {}}>
+                    {daysLeft > 0 ? `${daysLeft}d left` : daysLeft === 0 ? "Today" : "Ended"}
+                  </span>
                 </span>
-              )}
-              {isUrgent && (
-                <span className="px-3 py-1 bg-red-500/20 border border-red-500/40 rounded-full text-xs font-semibold text-red-400 backdrop-blur-sm">
-                  URGENT
-                </span>
-              )}
-              {isDeadlineSoon && !isUrgent && (
-                <span className="px-3 py-1 bg-amber-500/20 border border-amber-500/40 rounded-full text-xs font-semibold text-amber-400 backdrop-blur-sm">
-                  CLOSING SOON
-                </span>
-              )}
-              {opportunity.match_score >= 70 && (
-                <span className="px-3 py-1 bg-accent/20 border border-accent/40 rounded-full text-xs font-semibold text-accent-light backdrop-blur-sm">
-                  🔥 HIGH MATCH
-                </span>
-              )}
+              </div>
             </div>
-          </div>
 
-          {/* Match score */}
-          <div className="absolute bottom-4 right-4">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full border border-zinc-700/50">
-              <Sparkles className="w-3.5 h-3.5 text-accent-light" />
-              <span className="text-sm font-bold text-white">
-                {opportunity.match_score}%
-              </span>
-            </div>
-          </div>
-
-          {/* Title */}
-          <div className="absolute bottom-4 left-4 right-16">
-            <h2 className="text-xl font-bold text-white leading-tight drop-shadow-lg">
+            <h2 className="text-[20px] font-semibold leading-[1.2] tracking-[-0.22px] mb-2" style={{ fontFamily: "'Space Grotesk', sans-serif", color: "var(--text)" }}>
               {opportunity.title}
             </h2>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-5 space-y-4">
-          {/* Meta info */}
-          <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-400">
-            <div className="flex items-center gap-1.5">
-              <Building2 className="w-4 h-4 text-zinc-500" />
-              <span>{opportunity.provider}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <MapPin className="w-4 h-4 text-zinc-500" />
-              <span>{opportunity.country}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-zinc-500" />
-              <span
-                className={
-                  isUrgent
-                    ? "text-red-400 font-medium"
-                    : isDeadlineSoon
-                    ? "text-amber-400 font-medium"
-                    : ""
-                }
-              >
-                {daysLeft > 0 ? `${daysLeft} days left` : daysLeft === 0 ? "Today!" : "Deadline passed"}
-              </span>
-            </div>
-          </div>
-
-          {/* Trust row */}
-          <div className="flex items-center gap-3 text-[10px]">
-            {opportunity.application_link ? (
-              <span className="flex items-center gap-1 text-green-500">
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                Official link available
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-amber-500">
-                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
-                Aggregated listing
-              </span>
+            <p className="text-[14px] leading-[1.25]" style={{ color: "var(--muted)" }}>
+              {opportunity.provider}
+            </p>
+            {/* Why this card */}
+            {opportunity.match_score >= 60 && (
+              <p className="text-[11px] mt-2 leading-tight" style={{ color: "var(--lime)", opacity: 0.7, fontFamily: "'JetBrains Mono', monospace" }}>
+                Because {(opportunity.tags || []).slice(0, 2).join(" · ") || "it matches your interests"}
+              </p>
             )}
-            {opportunity.tags.includes("verified") && (
-              <span className="flex items-center gap-1 text-blue-400">
-                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
-                Verified
-              </span>
-            )}
-          </div>
-
-          {/* Level & Field tags */}
-          <div className="flex flex-wrap gap-2">
-            <span className="px-2.5 py-1 bg-zinc-800 rounded-md text-xs text-zinc-300 capitalize border border-zinc-700/50">
-              {TYPE_LABELS[opportunity.type as keyof typeof TYPE_LABELS] || opportunity.type}
-            </span>
-            <span className="px-2.5 py-1 bg-zinc-800 rounded-md text-xs text-zinc-300 border border-zinc-700/50">
-              {opportunity.field}
-            </span>
-            {opportunity.tags.slice(0, 2).map((tag) => (
-              <span
-                key={tag}
-                className="px-2.5 py-1 bg-zinc-800 rounded-md text-xs text-zinc-400 border border-zinc-700/50"
-              >
-                #{tag}
-              </span>
-            ))}
           </div>
 
           {/* Description */}
-          <p className="text-sm text-zinc-400 leading-relaxed line-clamp-2">
-            {opportunity.description}
-          </p>
-        </div>
-      </div>
-    </motion.div>
+          <div className="px-6 pb-4">
+            <p className="text-[13px] leading-[1.4] line-clamp-2" style={{ color: "var(--faint)" }}>
+              {opportunity.description}
+            </p>
+          </div>
 
-    <DetailView
-      opportunity={showDetail ? opportunity : null}
-      onClose={() => setShowDetail(false)}
-      onApply={onApplyAI}
-    />
-  </>
+          {/* Footer */}
+          <div className="px-6 py-3 flex items-center justify-between" style={{ borderTop: "1px solid var(--line)" }}>
+            <div className="flex items-center gap-2">
+              <span className="text-[12px]" style={{ color: "var(--faint)", fontFamily: "'JetBrains Mono', monospace" }}>
+                {getTypeLabel(opportunity.type)}
+              </span>
+              {opportunity.is_remote && (
+                <span className="inline-flex items-center text-[10px] uppercase tracking-[0.06em] px-2 py-0.5 rounded-full border" style={{ fontFamily: "'JetBrains Mono', monospace", borderColor: "var(--line)", color: "var(--muted)" }}>Remote</span>
+              )}
+              {opportunity.funding_type === "full" && (
+                <span className="inline-flex items-center text-[10px] uppercase tracking-[0.06em] px-2 py-0.5 rounded-full border" style={{ fontFamily: "'JetBrains Mono', monospace", borderColor: "var(--lime)", color: "var(--lime)" }}>Funded</span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-medium" style={{ color: "var(--lime)", fontFamily: "'JetBrains Mono', monospace" }}>
+                {opportunity.match_score}% match
+              </span>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowDetail(true); }}
+                className="transition-colors"
+                style={{ color: "var(--faint)" }}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      <DetailView
+        opportunity={showDetail ? opportunity : null}
+        onClose={() => setShowDetail(false)}
+        onApply={onApplyAI}
+      />
+    </>
   );
 }

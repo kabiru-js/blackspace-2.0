@@ -3,167 +3,140 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
-import { Mail, Lock, Eye, EyeOff, Sparkles, Loader2 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { track } from "@/lib/analytics";
+import Link from "next/link";
+
+const mono = { fontFamily: "'JetBrains Mono', monospace" };
+const display = { fontFamily: "'Space Grotesk', sans-serif" };
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const supabase = createClient();
+  const supabase: any = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
     try {
       if (isSignUp) {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-
+        const { error: signUpError } = await supabase.auth.signUp({ email, password });
         if (signUpError) throw signUpError;
-
-        setError(
-          "Account created! Check your email for a confirmation link before signing in."
-        );
+        setError("Account created. Check your email to confirm.");
         track("signup", { email });
         setIsSignUp(false);
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (signInError) {
-          console.error("Sign in error:", signInError);
-          throw signInError;
-        }
-
-        console.log("Login success, redirecting to onboarding");
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) throw signInError;
         track("signin", { email });
         router.push("/onboarding");
       }
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred"
-      );
+    } catch (err: any) {
+      setError(err?.message || "An error occurred");
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-black p-4">
-      <div className="absolute inset-0 bg-grid opacity-20" />
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-accent/10 rounded-full blur-[120px]" />
+  const inputStyle = {
+    width: "100%",
+    background: "transparent",
+    border: "1px solid var(--line-strong)",
+    borderRadius: "100px",
+    padding: "12px 18px",
+    color: "var(--text)",
+    fontSize: "14px",
+    fontFamily: "'JetBrains Mono', monospace",
+    outline: "none",
+    transition: "border-color .2s ease, box-shadow .2s ease",
+  };
 
+  return (
+    <div className="min-h-screen flex items-center justify-center px-6" style={{ background: "var(--black)" }}>
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative w-full max-w-sm"
+        transition={{ duration: 0.2, ease: "easeOut" }}
+        className="w-full max-w-[360px]"
       >
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-accent to-blue-500 flex items-center justify-center shadow-lg shadow-accent/25">
-            <Sparkles className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gradient">Blackspace</h1>
-          <p className="text-zinc-400 mt-2 text-sm">
-            Discover scholarships that match your future
-          </p>
+        <div className="flex justify-center mb-8">
+          <Link href="/" className="flex items-center gap-[9px] text-[24px] tracking-[0.02em]" style={{ fontFamily: "'Bebas Neue', sans-serif", color: "var(--text)" }}>
+            <span className="w-2 h-2 rounded-full" style={{ background: "var(--lime)", boxShadow: "0 0 16px var(--lime)", animation: "pulse 2s ease-in-out infinite" }} />
+            BLACKSPACE
+          </Link>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm text-zinc-400 font-medium">Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-zinc-600 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition-all"
-              />
-            </div>
+        <h1 className="text-[24px] font-bold leading-[1.19] mb-2" style={{ ...display, color: "var(--text)" }}>
+          {isSignUp ? "Create account" : "Welcome back"}
+        </h1>
+        <p className="text-[14px] mb-8 leading-[1.25]" style={{ color: "var(--muted)" }}>
+          {isSignUp ? "Start discovering opportunities." : "Access your opportunities and continue where you left off."}
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className="block text-[12px] mb-1.5 uppercase tracking-[0.06em]" style={{ ...mono, color: "var(--faint)" }}>Email</label>
+            <input
+              type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com" required
+              style={inputStyle}
+              className="focus:border-[var(--lime)] focus:shadow-[0_0_0_4px_rgba(214,255,63,.12)]"
+            />
+          </div>
+          <div>
+            <label className="block text-[12px] mb-1.5 uppercase tracking-[0.06em]" style={{ ...mono, color: "var(--faint)" }}>Password</label>
+            <input
+              type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••" required minLength={6}
+              style={inputStyle}
+              className="focus:border-[var(--lime)] focus:shadow-[0_0_0_4px_rgba(214,255,63,.12)]"
+            />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm text-zinc-400 font-medium">
-              Password
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                minLength={6}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-3 pl-10 pr-12 text-white placeholder:text-zinc-600 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30 transition-all"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="text-[13px] rounded-full px-4 py-2.5"
+                style={{
+                  color: "var(--lime)",
+                  background: "rgba(214,255,63,.06)",
+                  border: "1px solid rgba(214,255,63,.15)",
+                  ...mono,
+                }}
               >
-                {showPassword ? (
-                  <EyeOff className="w-4 h-4" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 text-center">
-              {error}
-            </div>
-          )}
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-accent text-white rounded-xl font-semibold hover:bg-accent-dark transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            type="submit" disabled={loading}
+            className="btn btn-primary w-full justify-center"
+            style={{ padding: "14px 0", fontSize: "14px" }}
           >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                {isSignUp ? "Creating account..." : "Signing in..."}
-              </>
-            ) : isSignUp ? (
-              "Create Account"
-            ) : (
-              "Sign In"
-            )}
+            {loading ? "Loading..." : isSignUp ? "Create account" : "Sign in"}
           </button>
-
-          <p className="text-center text-sm text-zinc-500">
-            {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-            <button
-              type="button"
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setError(null);
-              }}
-              className="text-accent-light hover:text-accent transition-colors font-medium"
-            >
-              {isSignUp ? "Sign In" : "Sign Up"}
-            </button>
-          </p>
         </form>
+
+        <p className="text-[13px] text-center mt-6" style={{ ...mono, color: "var(--faint)" }}>
+          {isSignUp ? "Already have an account?" : "No account yet?"}{" "}
+          <button
+            onClick={() => { setIsSignUp(!isSignUp); setError(null); }}
+            style={{ color: "var(--lime)" }}
+            className="hover:underline underline-offset-2 transition-all"
+          >
+            {isSignUp ? "Sign in" : "Create one"}
+          </button>
+        </p>
       </motion.div>
     </div>
   );
