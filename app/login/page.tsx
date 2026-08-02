@@ -25,16 +25,35 @@ export default function LoginPage() {
     setError(null);
     try {
       if (isSignUp) {
-        const { error: signUpError } = await supabase.auth.signUp({ email, password });
+        const { error: signUpError, data: signUpData } = await supabase.auth.signUp({ email, password });
         if (signUpError) throw signUpError;
-        setError("Account created. Check your email to confirm.");
         track("signup", { email });
-        setIsSignUp(false);
+        if (signUpData?.session) {
+          // Email confirmation is disabled — session exists immediately.
+          router.push("/onboarding");
+        } else {
+          setError("Account created. Check your email to confirm.");
+          setIsSignUp(false);
+        }
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
         track("signin", { email });
-        router.push("/onboarding");
+        // Route existing users straight to the feed — never re-run onboarding.
+        // Their profile, saved cards, documents, and applications are all
+        // persisted in the DB, so only brand-new users (no profile row yet)
+        // see onboarding.
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        let hasProfile = false;
+        try {
+          const { data: profile } = await supabase
+            .from("users")
+            .select("id")
+            .eq("id", authUser?.id)
+            .maybeSingle();
+          hasProfile = !!profile;
+        } catch {}
+        router.push(hasProfile ? "/swipe" : "/onboarding");
       }
     } catch (err: any) {
       setError(err?.message || "An error occurred");

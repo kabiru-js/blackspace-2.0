@@ -23,6 +23,9 @@ export interface Database {
           skills: string[] | null;
           category_focus: string[] | null;
           experience_level: string | null;
+          interests: string[] | null;
+          intents: string[] | null;
+          exploration_level: "focused" | "balanced" | "open" | null;
           created_at: string;
         };
         Insert: {
@@ -38,6 +41,9 @@ export interface Database {
           skills?: string[] | null;
           category_focus?: string[] | null;
           experience_level?: string | null;
+          interests?: string[] | null;
+          intents?: string[] | null;
+          exploration_level?: "focused" | "balanced" | "open" | null;
           created_at?: string;
         };
         Update: {
@@ -53,6 +59,9 @@ export interface Database {
           skills?: string[] | null;
           category_focus?: string[] | null;
           experience_level?: string | null;
+          interests?: string[] | null;
+          intents?: string[] | null;
+          exploration_level?: "focused" | "balanced" | "open" | null;
           created_at?: string;
         };
       };
