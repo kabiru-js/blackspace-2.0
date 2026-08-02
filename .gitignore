@@ -27,3 +27,6 @@ build/
 # Stray artifacts
 nul
 Design Blackspace logo/
+
+# TypeScript build info
+*.tsbuildinfo
