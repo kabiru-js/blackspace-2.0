@@ -85,6 +85,7 @@ export interface Database {
           requirements: string | null;
           application_link: string | null;
           tags: string[] | null;
+          search_vector: string | null;
           created_at: string;
         };
         Insert: {
@@ -106,6 +107,7 @@ export interface Database {
           requirements?: string | null;
           application_link?: string | null;
           tags?: string[] | null;
+          search_vector?: string | null;
           created_at?: string;
         };
         Update: {
@@ -127,7 +129,37 @@ export interface Database {
           requirements?: string | null;
           application_link?: string | null;
           tags?: string[] | null;
+          search_vector?: string | null;
           created_at?: string;
+        };
+      };
+      search_logs: {
+        Row: {
+          id: string;
+          query: string | null;
+          keywords: string[] | null;
+          result_count: number | null;
+          fallback_used: boolean | null;
+          clicked_result_id: string | null;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          query?: string | null;
+          keywords?: string[] | null;
+          result_count?: number | null;
+          fallback_used?: boolean | null;
+          clicked_result_id?: string | null;
+          created_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          query?: string | null;
+          keywords?: string[] | null;
+          result_count?: number | null;
+          fallback_used?: boolean | null;
+          clicked_result_id?: string | null;
+          created_at?: string | null;
         };
       };
       swipes: {

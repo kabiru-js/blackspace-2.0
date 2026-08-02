@@ -62,6 +62,8 @@ export function AISearch({ userId }: { userId: string }) {
   const [parsed, setParsed] = useState<any>(null);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searched, setSearched] = useState(false);
+  const [fallbackUsed, setFallbackUsed] = useState(false);
+  const [searchedKeywords, setSearchedKeywords] = useState<string[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   useEffect(() => { setRecentSearches(getHistory()); }, []);
@@ -87,6 +89,8 @@ export function AISearch({ userId }: { userId: string }) {
         if (data.error) throw new Error(data.error);
         setParsed(data.parsed);
         setResults(data.results || []);
+        setFallbackUsed(!!data.fallbackUsed);
+        setSearchedKeywords(data.searchedKeywords || []);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -147,10 +151,17 @@ export function AISearch({ userId }: { userId: string }) {
               {parsed.funding_type === "full" ? "Fully Funded" : parsed.funding_type}
             </span>
           )}
-          {parsed.keywords?.map((kw: string) => (
-            <span key={kw} className="px-2.5 py-1 rounded-full border text-xs" style={{ ...mono, borderColor: "var(--line)", color: "var(--faint)" }}>{kw}</span>
-          ))}
         </motion.div>
+      )}
+
+      {/* What the system understood (transparency) */}
+      {searched && !loading && searchedKeywords.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] uppercase tracking-[0.06em]" style={{ ...mono, color: "var(--faint)" }}>Searched:</span>
+          {searchedKeywords.slice(0, 8).map((kw) => (
+            <span key={kw} className="px-2 py-0.5 rounded-full border text-[10px]" style={{ ...mono, borderColor: "var(--line)", color: "var(--faint)" }}>{kw}</span>
+          ))}
+        </div>
       )}
 
       {/* Loading */}
@@ -158,6 +169,15 @@ export function AISearch({ userId }: { userId: string }) {
         <div className="flex flex-col items-center gap-3 py-10">
           <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--lime)" }} />
           <p className="text-xs" style={{ ...mono, color: "var(--faint)" }}>Finding opportunities that match &quot;{query}&quot;...</p>
+        </div>
+      )}
+
+      {/* Fallback notice */}
+      {searched && !loading && fallbackUsed && results.length > 0 && (
+        <div className="px-4 py-3 rounded-2xl border" style={{ background: "rgba(214,255,63,.04)", borderColor: "rgba(214,255,63,.12)" }}>
+          <p className="text-xs" style={{ ...mono, color: "var(--muted)" }}>
+            We couldn&apos;t find exact matches, but here are related opportunities.
+          </p>
         </div>
       )}
 

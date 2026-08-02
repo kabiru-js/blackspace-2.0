@@ -53,8 +53,6 @@ export default function LandingPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const deckRef = useRef<HTMLDivElement>(null);
   const deckStageRef = useRef<HTMLDivElement>(null);
-  const cursorRingRef = useRef<HTMLDivElement>(null);
-  const cursorDotRef = useRef<HTMLDivElement>(null);
   const navLogoRef = useRef<HTMLDivElement>(null);
   const statementRef = useRef<HTMLParagraphElement>(null);
   const marqueeR1Ref = useRef<HTMLDivElement>(null);
@@ -208,27 +206,6 @@ export default function LandingPage() {
 
   const handleDeckMouseLeave = useCallback(() => {
     if (deckStageRef.current) deckStageRef.current.style.transform = "";
-  }, []);
-
-  // ── custom cursor ────────────────────────────────────
-  useEffect(() => {
-    if (window.matchMedia("(pointer:coarse)").matches) return;
-    const dot = cursorDotRef.current;
-    const ring = cursorRingRef.current;
-    if (!dot || !ring) return;
-    let mx = 0, my = 0, rx = 0, ry = 0;
-    const onMove = (e: MouseEvent) => { mx = e.clientX; my = e.clientY; dot.style.left = mx + "px"; dot.style.top = my + "px"; };
-    const loop = () => { rx += (mx - rx) * 0.18; ry += (my - ry) * 0.18; ring.style.left = rx + "px"; ring.style.top = ry + "px"; requestAnimationFrame(loop); };
-    window.addEventListener("mousemove", onMove);
-    loop();
-    const els = document.querySelectorAll("a,button,.tilt,input,summary");
-    const addHover = () => ring.classList.add("hover");
-    const removeHover = () => ring.classList.remove("hover");
-    els.forEach((el) => { el.addEventListener("mouseenter", addHover); el.addEventListener("mouseleave", removeHover); });
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      els.forEach((el) => { el.removeEventListener("mouseenter", addHover); el.removeEventListener("mouseleave", removeHover); });
-    };
   }, []);
 
   // ── scroll header border ─────────────────────────────
@@ -476,10 +453,6 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen text-[var(--text)] overflow-x-clip relative" style={{ fontFamily: "'Inter', sans-serif" }}>
-        {/* ─── custom cursor ─── */}
-        <div ref={cursorRingRef} className="cursor-ring" />
-        <div ref={cursorDotRef} className="cursor-dot" />
-
         {/* ─── noise overlay ─── */}
         <svg className="noise-svg">
           <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" /></filter>
