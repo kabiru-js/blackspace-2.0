@@ -314,6 +314,7 @@ export default function OnboardingPage() {
         full_name: fullName, country,
         level: level as any,
         field_of_study: "Various",
+        gpa: "",
         preferred_countries: countries.length > 0 ? countries : COUNTRIES,
         goals: goals || discoveryQuery,
         category_focus: categoryFocus,
@@ -321,6 +322,7 @@ export default function OnboardingPage() {
         interests: allInterests,
         intents: intents,
         exploration_level: "balanced",
+        experience_level: level,
         created_at: "",
       } as User);
 

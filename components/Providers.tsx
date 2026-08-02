@@ -22,20 +22,21 @@ export function Providers({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        const { data: profile, error: profileError } = await supabase
+        const { data: profileRow, error: profileError } = await (supabase as any)
           .from("users")
           .select("*")
           .eq("id", session.user.id)
           .single();
 
-        console.log("Providers: profile", !!profile, profileError?.message || "");
+        console.log("Providers: profile", !!profileRow, profileError?.message || "");
         
         if (profileError && profileError.code !== "PGRST116") {
           console.error("Profile fetch error:", profileError);
         }
         
-        if (profile) {
+        if (profileRow) {
           // Ensure v4 fields have defaults
+          const profile = profileRow as any;
           const enrichedProfile = {
             ...profile,
             interests: profile.interests || [],
